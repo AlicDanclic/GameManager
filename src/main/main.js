@@ -40,17 +40,18 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1200,
-    minHeight: 700,
+    width: 1080,
+    height: 720,
+    minWidth: 1080,
+    minHeight: 720,
+    frame: false, // 隐藏默认窗口边框，使用自定义标题栏
+    titleBarStyle: 'default', // 对 Windows 无影响
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
       enableRemoteModule: true,
       webSecurity: false
     },
-    titleBarStyle: 'default',
     show: false
   });
 
@@ -78,7 +79,7 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // 开发工具
+  // 开发工具（可选）
   // mainWindow.webContents.openDevTools();
 }
 
@@ -96,7 +97,24 @@ app.on('activate', () => {
   }
 });
 
-// IPC 处理
+// ==================== 窗口控制 IPC ====================
+ipcMain.on('window-minimize', () => {
+  mainWindow.minimize();
+});
+
+ipcMain.on('window-maximize', () => {
+  if (mainWindow.isMaximized()) {
+    mainWindow.unmaximize();
+  } else {
+    mainWindow.maximize();
+  }
+});
+
+ipcMain.on('window-close', () => {
+  mainWindow.close();
+});
+
+// ==================== 原有 IPC 处理 ====================
 
 // 获取设置
 ipcMain.handle('get-settings', async () => {

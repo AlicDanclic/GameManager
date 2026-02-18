@@ -7,6 +7,16 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <!-- 自定义标题栏（无边框窗口拖动区域） -->
+  <div class="custom-titlebar">
+    <div class="titlebar-drag-area">Game Manager</div>
+    <div class="titlebar-controls">
+      <button class="titlebar-btn" onclick="minimizeWindow()">─</button>
+      <button class="titlebar-btn" onclick="maximizeWindow()">□</button>
+      <button class="titlebar-btn close" onclick="closeWindow()">×</button>
+    </div>
+  </div>
+
   <div class="app-container">
     <!-- 侧边栏导航 -->
     <nav class="sidebar">

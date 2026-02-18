@@ -23,6 +23,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupModals();
 });
 
+// ==================== 窗口控制 ====================
+window.minimizeWindow = () => ipcRenderer.send('window-minimize');
+window.maximizeWindow = () => ipcRenderer.send('window-maximize');
+window.closeWindow = () => ipcRenderer.send('window-close');
+
 // ==================== 导航 ====================
 function setupNavigation() {
   const navItems = document.querySelectorAll('.nav-item');
@@ -488,6 +493,7 @@ function addGuideNode(type) {
   saveGuide();
 }
 
+// 修改后的 renderGuideNode：输入左、输出右
 function renderGuideNode(node) {
   const container = document.getElementById('nodes-container');
   
@@ -503,6 +509,42 @@ function renderGuideNode(node) {
     'multi-out': '一入多出'
   }[node.type];
   
+  // 构建输入端口列表
+  const inputsHtml = node.inputs.map((input, i) => `
+    <div class="port-row input-row" data-node="${node.id}">
+      <div class="port-handle input" 
+           data-node="${node.id}" data-port="${i}" data-type="input"
+           onmousedown="startConnection(event, '${node.id}', ${i}, 'input')"></div>
+      <input type="text" class="port-label-input" value="${input}"
+             onchange="updatePortLabel('${node.id}', 'input', ${i}, this.value)"
+             onclick="event.stopPropagation()">
+      ${node.type !== 'single' && i === node.inputs.length - 1 ? `
+        <button class="port-add-btn" onclick="addPort('${node.id}', 'input')">+</button>
+      ` : ''}
+      ${node.inputs.length > 1 ? `
+        <button class="port-remove-btn" onclick="removePort('${node.id}', 'input', ${i})">-</button>
+      ` : ''}
+    </div>
+  `).join('');
+  
+  // 构建输出端口列表（注意输出行的手柄在右侧，通过 CSS 控制）
+  const outputsHtml = node.outputs.map((output, i) => `
+    <div class="port-row output-row" data-node="${node.id}">
+      <input type="text" class="port-label-input" value="${output}"
+             onchange="updatePortLabel('${node.id}', 'output', ${i}, this.value)"
+             onclick="event.stopPropagation()">
+      ${node.type !== 'single' && i === node.outputs.length - 1 ? `
+        <button class="port-add-btn" onclick="addPort('${node.id}', 'output')">+</button>
+      ` : ''}
+      ${node.outputs.length > 1 ? `
+        <button class="port-remove-btn" onclick="removePort('${node.id}', 'output', ${i})">-</button>
+      ` : ''}
+      <div class="port-handle output" 
+           data-node="${node.id}" data-port="${i}" data-type="output"
+           onmousedown="startConnection(event, '${node.id}', ${i}, 'output')"></div>
+    </div>
+  `).join('');
+  
   nodeEl.innerHTML = `
     <div class="node-header" onmousedown="startNodeDrag(event, '${node.id}')">
       <span class="node-type-icon">${typeLabel}</span>
@@ -511,35 +553,13 @@ function renderGuideNode(node) {
              onclick="event.stopPropagation()">
       <button class="node-delete-btn" onclick="deleteGuideNode('${node.id}')">&times;</button>
     </div>
-    <div class="node-ports">
-      ${node.inputs.map((input, i) => `
-        <div class="port-row">
-          <div class="port-handle input" 
-               data-node="${node.id}" data-port="${i}" data-type="input"
-               onmousedown="startConnection(event, '${node.id}', ${i}, 'input')"></div>
-          <input type="text" class="port-label-input" value="${input}"
-                 onchange="updatePortLabel('${node.id}', 'input', ${i}, this.value)"
-                 onclick="event.stopPropagation()">
-          ${node.type !== 'single' && i === node.inputs.length - 1 ? `
-            <button class="port-add-btn" onclick="addPort('${node.id}', 'input')">+</button>
-          ` : ''}
-          ${node.inputs.length > 1 ? `<button class="port-remove-btn" onclick="removePort('${node.id}', 'input', ${i})">-</button>` : ''}
-        </div>
-      `).join('')}
-      ${node.outputs.map((output, i) => `
-        <div class="port-row">
-          <div class="port-handle output" 
-               data-node="${node.id}" data-port="${i}" data-type="output"
-               onmousedown="startConnection(event, '${node.id}', ${i}, 'output')"></div>
-          <input type="text" class="port-label-input" value="${output}"
-                 onchange="updatePortLabel('${node.id}', 'output', ${i}, this.value)"
-                 onclick="event.stopPropagation()">
-          ${node.type !== 'single' && i === node.outputs.length - 1 ? `
-            <button class="port-add-btn" onclick="addPort('${node.id}', 'output')">+</button>
-          ` : ''}
-          ${node.outputs.length > 1 ? `<button class="port-remove-btn" onclick="removePort('${node.id}', 'output', ${i})">-</button>` : ''}
-        </div>
-      `).join('')}
+    <div class="node-ports-container">
+      <div class="node-inputs">
+        ${inputsHtml}
+      </div>
+      <div class="node-outputs">
+        ${outputsHtml}
+      </div>
     </div>
   `;
   
