@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Manager</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- 侧边栏导航 -->
+    <nav class="sidebar">
+      <div class="logo">
+        <h1>Game Manager</h1>
+      </div>
+      <ul class="nav-menu">
+        <li class="nav-item active" data-page="games">
+          <span class="nav-icon">🎮</span>
+          <span class="nav-text">游戏管理</span>
+        </li>
+        <li class="nav-item" data-page="settings">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-text">设置</span>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+      <!-- 游戏管理页面 -->
+      <div id="games-page" class="page active">
+        <header class="page-header">
+          <h2>游戏库</h2>
+          <div class="header-actions">
+            <button id="mtool-btn" class="btn btn-secondary" onclick="launchMtool()" style="display: none;">
+              🔧 启动 MTool
+            </button>
+            <button id="add-game-btn" class="btn btn-primary">+ 添加游戏</button>
+          </div>
+        </header>
+        
+        <div id="drop-zone" class="drop-zone">
+          <p>拖拽 exe 或 bat 文件到此处快速添加游戏</p>
+        </div>
+
+        <div id="games-grid" class="games-grid">
+          <!-- 游戏卡片将动态插入这里 -->
+        </div>
+      </div>
+
+      <!-- 设置页面 -->
+      <div id="settings-page" class="page">
+        <header class="page-header">
+          <h2>设置</h2>
+        </header>
+        
+        <div class="settings-container">
+          <div class="settings-section">
+            <h3>翻译工具</h3>
+            <div class="setting-item">
+              <label>翻译工具路径</label>
+              <div class="input-group">
+                <input type="text" id="translator-tool-path" readonly placeholder="选择翻译工具 exe 文件">
+                <button class="btn btn-secondary" onclick="selectTranslatorTool()">浏览</button>
+              </div>
+              <p class="setting-desc">用于 Galgame 的翻译工具，启动游戏前可选择先打开</p>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>MTool 翻译</h3>
+            <div class="setting-item">
+              <label>MTool 路径</label>
+              <div class="input-group">
+                <input type="text" id="mtool-path" readonly placeholder="选择 MTool 启动文件">
+                <button class="btn btn-secondary" onclick="selectMtoolPath()">浏览</button>
+              </div>
+              <p class="setting-desc">支持 exe 或 bat 文件，主界面可一键启动</p>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>转区工具</h3>
+            <div class="setting-item">
+              <label>Locale Emulator 路径</label>
+              <div class="input-group">
+                <input type="text" id="locale-emulator-path" readonly placeholder="选择 Locale Emulator">
+                <button class="btn btn-secondary" onclick="selectLocaleEmulator()">浏览</button>
+              </div>
+              <p class="setting-desc">用于 Galgame 的转区启动</p>
+            </div>
+            <div class="setting-item">
+              <label>默认启动方式</label>
+              <select id="default-gal-mode">
+                <option value="noLocale">不转区启动</option>
+                <option value="locale">转区启动</option>
+              </select>
+              <p class="setting-desc">Galgame 的默认启动方式</p>
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 添加游戏弹窗 -->
+  <div id="add-game-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>添加游戏</h3>
+        <button class="modal-close" onclick="closeAddGameModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>游戏名称</label>
+          <input type="text" id="game-name" placeholder="输入游戏名称">
+        </div>
+        <div class="form-group">
+          <label>游戏类型</label>
+          <select id="game-type">
+            <option value="galgame">Galgame</option>
+            <option value="rpg">RPG</option>
+            <option value="unity">Unity</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>程序文件</label>
+          <div class="input-group">
+            <input type="text" id="game-exe-path" readonly placeholder="选择 exe 或 bat 文件">
+            <button class="btn btn-secondary" onclick="selectGameExe()">浏览</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>存档文件夹</label>
+          <div class="input-group">
+            <input type="text" id="game-save-path" readonly placeholder="选择存档文件夹">
+            <button class="btn btn-secondary" onclick="selectSaveFolder()">浏览</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAddGameModal()">取消</button>
+        <button class="btn btn-primary" onclick="confirmAddGame()">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 攻略编辑器弹窗 -->
+  <div id="guide-modal" class="modal guide-modal">
+    <div class="modal-content guide-modal-content">
+      <div class="modal-header">
+        <h3>攻略编辑器</h3>
+        <button class="modal-close" onclick="closeGuideModal()">&times;</button>
+      </div>
+      <div class="modal-body guide-body">
+        <div class="guide-toolbar">
+          <button class="btn btn-secondary" onclick="addGuideNode('single')">+ 一入一出</button>
+          <button class="btn btn-secondary" onclick="addGuideNode('multi-in')">+ 多入一出</button>
+          <button class="btn btn-secondary" onclick="addGuideNode('multi-out')">+ 一入多出</button>
+          <button class="btn btn-danger" onclick="clearGuide()">清空</button>
+          <span class="toolbar-hint">提示：拖拽连接点创建连线，双击节点编辑文本</span>
+        </div>
+        <div id="guide-flow-container" class="guide-flow-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
