@@ -17,7 +17,10 @@
     "electron-builder": "^24.9.1"
   },
   "dependencies": {
-    "fs-extra": "^11.2.0"
+    "fs-extra": "^10.1.0",
+    "graceful-fs": "^4.2.11",
+    "jsonfile": "^6.2.0",
+    "universalify": "^2.0.1"
   },
   "build": {
     "appId": "com.gamemanager.app",
@@ -25,11 +28,6 @@
     "directories": {
       "output": "dist"
     },
-    "files": [
-      "src/**/*",
-      "node_modules/**/*",
-      "package.json"
-    ],
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico"
