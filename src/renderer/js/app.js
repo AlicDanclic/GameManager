@@ -1,4 +1,5 @@
 const { ipcRenderer } = require('electron');
+const path = require('path'); // 用于处理路径
 
 // 全局状态
 let games = [];
@@ -13,6 +14,9 @@ let isConnecting = false;
 let connectionStart = null;
 let dragOffset = { x: 0, y: 0 };
 let tempLine = null;
+
+// 新增编辑状态
+let editingGameId = null; // 当前正在编辑的游戏ID，null表示新增
 
 // 初始化
 document.addEventListener('DOMContentLoaded', async () => {
@@ -153,6 +157,7 @@ function renderGames() {
             <button class="btn btn-small btn-secondary" onclick="launchWithTranslator('${game.id}')">翻译</button>
           ` : ''}
           <button class="btn btn-small btn-secondary" onclick="openGuide('${game.id}')">攻略</button>
+          <button class="btn btn-small btn-secondary" onclick="editGame('${game.id}')">编辑</button>
           <button class="btn btn-small btn-danger" onclick="deleteGame('${game.id}')">删除</button>
         </div>
       </div>
@@ -245,12 +250,16 @@ let pendingGameData = null;
 
 function setupModals() {
   document.getElementById('add-game-btn').addEventListener('click', () => {
+    // 点击添加按钮：重置为新增模式
+    editingGameId = null;
     pendingGameData = null;
     openAddGameModal();
   });
 }
 
 function openAddGameModal() {
+  // 确保模态框标题正确
+  document.querySelector('#add-game-modal .modal-header h3').textContent = '添加游戏';
   document.getElementById('add-game-modal').classList.add('active');
   document.getElementById('game-name').value = '';
   document.getElementById('game-type').value = 'galgame';
@@ -259,16 +268,23 @@ function openAddGameModal() {
 }
 
 function openAddGameModalWithData(data) {
+  // 拖拽添加：使用预填充数据，仍为新增模式
+  editingGameId = null;
   pendingGameData = data;
+  document.querySelector('#add-game-modal .modal-header h3').textContent = '添加游戏';
   document.getElementById('add-game-modal').classList.add('active');
   document.getElementById('game-name').value = data.name;
   document.getElementById('game-type').value = data.type;
   document.getElementById('game-exe-path').value = data.exePath;
+  document.getElementById('game-save-path').value = '';
 }
 
 function closeAddGameModal() {
   document.getElementById('add-game-modal').classList.remove('active');
+  editingGameId = null;
   pendingGameData = null;
+  // 恢复模态框标题（以便下次打开正确）
+  document.querySelector('#add-game-modal .modal-header h3').textContent = '添加游戏';
 }
 
 async function selectGameExe() {
@@ -298,22 +314,51 @@ async function confirmAddGame() {
     return;
   }
   
-  const game = {
-    name,
-    type,
-    exePath,
-    savePath,
-    folderPath: pendingGameData ? pendingGameData.folderPath : require('path').dirname(exePath),
-    image: null
-  };
-  
-  const result = await ipcRenderer.invoke('add-game', game);
-  if (result.success) {
-    games.push(result.game);
-    renderGames();
-    closeAddGameModal();
+  if (editingGameId) {
+    // === 编辑模式 ===
+    const index = games.findIndex(g => g.id === editingGameId);
+    if (index === -1) {
+      alert('游戏不存在，请刷新重试');
+      return;
+    }
+
+    // 更新游戏对象
+    const updatedGame = {
+      ...games[index],
+      name,
+      type,
+      exePath,
+      savePath,
+      folderPath: path.dirname(exePath) // 根据新的 exe 路径更新文件夹路径
+    };
+
+    games[index] = updatedGame;
+    const result = await ipcRenderer.invoke('save-games', games);
+    if (result.success) {
+      renderGames();
+      closeAddGameModal();
+    } else {
+      alert('保存失败: ' + result.error);
+    }
   } else {
-    alert('添加失败: ' + result.error);
+    // === 新增模式 ===
+    const game = {
+      name,
+      type,
+      exePath,
+      savePath,
+      folderPath: pendingGameData ? pendingGameData.folderPath : path.dirname(exePath),
+      image: null
+    };
+    
+    const result = await ipcRenderer.invoke('add-game', game);
+    if (result.success) {
+      games.push(result.game);
+      renderGames();
+      closeAddGameModal();
+    } else {
+      alert('添加失败: ' + result.error);
+    }
   }
 }
 
@@ -398,6 +443,27 @@ async function launchWithTranslator(gameId) {
       localeEmulatorPath: settings.localeEmulator
     });
   }, 1000);
+}
+
+// ==================== 新增编辑功能 ====================
+function editGame(gameId) {
+  const game = games.find(g => g.id === gameId);
+  if (!game) return;
+
+  editingGameId = gameId;
+  pendingGameData = null; // 清除拖拽预填充数据
+
+  // 填充表单
+  document.getElementById('game-name').value = game.name;
+  document.getElementById('game-type').value = game.type;
+  document.getElementById('game-exe-path').value = game.exePath;
+  document.getElementById('game-save-path').value = game.savePath || '';
+
+  // 修改模态框标题
+  document.querySelector('#add-game-modal .modal-header h3').textContent = '编辑游戏';
+
+  // 显示模态框
+  document.getElementById('add-game-modal').classList.add('active');
 }
 
 // ==================== 攻略编辑器 ====================
@@ -493,7 +559,6 @@ function addGuideNode(type) {
   saveGuide();
 }
 
-// 修改后的 renderGuideNode：输入左、输出右
 function renderGuideNode(node) {
   const container = document.getElementById('nodes-container');
   
@@ -527,7 +592,7 @@ function renderGuideNode(node) {
     </div>
   `).join('');
   
-  // 构建输出端口列表（注意输出行的手柄在右侧，通过 CSS 控制）
+  // 构建输出端口列表
   const outputsHtml = node.outputs.map((output, i) => `
     <div class="port-row output-row" data-node="${node.id}">
       <input type="text" class="port-label-input" value="${output}"
