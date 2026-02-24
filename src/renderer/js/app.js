@@ -25,6 +25,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupNavigation();
   setupDropZone();
   setupModals();
+
+  // 监听打包进度
+  ipcRenderer.on('pack-progress', (event, progress) => {
+    const percent = progress.percent || 0;
+    const status = progress.status || '';
+    const fill = document.getElementById('pack-progress-fill');
+    const statusEl = document.getElementById('pack-progress-status');
+    if (fill) fill.style.width = percent + '%';
+    if (statusEl) statusEl.textContent = status;
+  });
 });
 
 // ==================== 窗口控制 ====================
@@ -157,6 +167,8 @@ function renderGames() {
             <button class="btn btn-small btn-secondary" onclick="launchWithTranslator('${game.id}')">翻译</button>
           ` : ''}
           <button class="btn btn-small btn-secondary" onclick="openGuide('${game.id}')">攻略</button>
+          <!-- 新增打包按钮 -->
+          <button class="btn btn-small btn-secondary" onclick="packGame('${game.id}')">打包</button>
           <button class="btn btn-small btn-secondary" onclick="editGame('${game.id}')">编辑</button>
           <button class="btn btn-small btn-danger" onclick="deleteGame('${game.id}')">删除</button>
         </div>
@@ -913,3 +925,40 @@ function clearGuide() {
   renderGuideConnections();
   saveGuide();
 }
+
+// ==================== 新增：一键打包（带进度） ====================
+async function packGame(gameId) {
+  const game = games.find(g => g.id === gameId);
+  if (!game) {
+    alert('游戏不存在');
+    return;
+  }
+
+  // 确认打包
+  if (!confirm(`确定要打包游戏“${game.name}”吗？\n将包含游戏文件夹和存档文件夹。`)) {
+    return;
+  }
+
+  // 显示进度模态框
+  const modal = document.getElementById('pack-progress-modal');
+  modal.classList.add('active');
+  document.getElementById('pack-progress-fill').style.width = '0%';
+  document.getElementById('pack-progress-status').textContent = '正在计算文件大小...';
+
+  try {
+    const result = await ipcRenderer.invoke('pack-game', gameId);
+    if (result.success) {
+      alert(`打包成功！\n文件已保存到：${result.filePath}`);
+    } else {
+      alert('打包失败：' + result.error);
+    }
+  } catch (error) {
+    alert('打包出错：' + error.message);
+  } finally {
+    // 隐藏进度模态框
+    modal.classList.remove('active');
+  }
+}
+
+// 将函数暴露到全局，以便 onclick 调用
+window.packGame = packGame;

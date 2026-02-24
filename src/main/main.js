@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs-extra');
 const { exec, spawn } = require('child_process');
 const os = require('os');
+const archiver = require('archiver'); // 用于打包
 
 // 数据存储路径
 const dataPath = path.join(os.homedir(), '.game-manager');
@@ -352,6 +353,88 @@ ipcMain.handle('launch-mtool', async () => {
     }
     return { success: true };
   } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// ==================== 新增：一键打包（带进度） ====================
+ipcMain.handle('pack-game', async (event, gameId) => {
+  try {
+    // 读取游戏列表
+    const games = await fs.readJson(gamesFile);
+    const game = games.find(g => g.id === gameId);
+    if (!game) {
+      return { success: false, error: '游戏不存在' };
+    }
+
+    const gameFolder = game.folderPath;
+    const saveFolder = game.savePath;
+
+    // 检查游戏文件夹是否存在
+    if (!gameFolder || !fs.existsSync(gameFolder)) {
+      return { success: false, error: '游戏文件夹不存在' };
+    }
+
+    // 弹出保存对话框，让用户选择 ZIP 保存位置
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: '保存打包文件',
+      defaultPath: path.join(os.homedir(), `${game.name}.zip`),
+      filters: [{ name: 'ZIP 压缩包', extensions: ['zip'] }]
+    });
+
+    if (canceled || !filePath) {
+      return { success: false, error: '用户取消' };
+    }
+
+    // 创建输出流
+    const output = fs.createWriteStream(filePath);
+    const archive = archiver('zip', { zlib: { level: 9 } }); // 最高压缩比
+
+    // 监听进度（archiver 的 progress 事件提供已处理字节和总字节）
+    archive.on('progress', (progress) => {
+      const percent = Math.round((progress.fs.processedBytes / progress.fs.totalBytes) * 100) || 0;
+      const processedMB = (progress.fs.processedBytes / 1024 / 1024).toFixed(2);
+      const totalMB = (progress.fs.totalBytes / 1024 / 1024).toFixed(2);
+      event.sender.send('pack-progress', {
+        percent: percent,
+        status: `已打包 ${processedMB} MB / ${totalMB} MB`
+      });
+    });
+
+    // 监听错误
+    archive.on('error', err => {
+      throw err;
+    });
+
+    // 当输出流关闭时完成
+    const completion = new Promise((resolve, reject) => {
+      output.on('close', () => resolve());
+      archive.on('error', err => reject(err));
+    });
+
+    archive.pipe(output);
+
+    // 添加游戏文件夹（保持原名）
+    const gameBaseName = path.basename(gameFolder);
+    archive.directory(gameFolder, gameBaseName);
+
+    // 如果存档文件夹存在且与游戏文件夹不同，则添加存档文件夹并重命名
+    if (saveFolder && fs.existsSync(saveFolder)) {
+      const saveBaseName = path.basename(saveFolder);
+      // 避免重复添加（当存档文件夹就是游戏文件夹本身时）
+      if (path.resolve(saveFolder) !== path.resolve(gameFolder)) {
+        // 在压缩包内将存档文件夹重命名为 "Savedata-原文件夹名"
+        archive.directory(saveFolder, `Savedata-${saveBaseName}`);
+      }
+    }
+
+    // 完成打包
+    await archive.finalize();
+    await completion;
+
+    return { success: true, filePath };
+  } catch (error) {
+    console.error('打包失败:', error);
     return { success: false, error: error.message };
   }
 });
