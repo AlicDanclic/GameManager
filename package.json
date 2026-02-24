@@ -1,6 +1,6 @@
 {
   "name": "game-manager",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "游戏管理软件 - 管理Galgame、RPG和Unity游戏",
   "main": "src/main/main.js",
   "scripts": {

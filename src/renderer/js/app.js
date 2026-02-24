@@ -169,6 +169,7 @@ function renderGames() {
           <button class="btn btn-small btn-secondary" onclick="openGuide('${game.id}')">攻略</button>
           <!-- 新增打包按钮 -->
           <button class="btn btn-small btn-secondary" onclick="packGame('${game.id}')">打包</button>
+          <button class="btn btn-small btn-danger" onclick="deleteSourceFiles('${game.id}')">删源</button>
           <button class="btn btn-small btn-secondary" onclick="editGame('${game.id}')">编辑</button>
           <button class="btn btn-small btn-danger" onclick="deleteGame('${game.id}')">删除</button>
         </div>
@@ -959,6 +960,42 @@ async function packGame(gameId) {
     modal.classList.remove('active');
   }
 }
+
+// ==================== 删除源文件（游戏文件夹和存档文件夹） ====================
+async function deleteSourceFiles(gameId) {
+  const game = games.find(g => g.id === gameId);
+  if (!game) {
+    alert('游戏不存在');
+    return;
+  }
+
+  // 构建提示信息
+  let message = `确定要永久删除以下文件夹吗？\n此操作不可恢复！\n\n游戏文件夹：${game.folderPath}`;
+  if (game.savePath && game.savePath !== game.folderPath) {
+    message += `\n存档文件夹：${game.savePath}`;
+  }
+
+  if (!confirm(message)) {
+    return;
+  }
+
+  // 二次确认（更谨慎）
+  if (!confirm('再次确认：删除后将无法恢复，确定继续？')) {
+    return;
+  }
+
+  const result = await ipcRenderer.invoke('delete-source-files', gameId);
+  if (result.success) {
+    alert('源文件删除成功！');
+    // 刷新游戏列表（游戏记录仍在，但文件夹已删）
+    await loadGames();
+  } else {
+    alert('删除失败：' + result.error);
+  }
+}
+
+// 暴露到全局
+window.deleteSourceFiles = deleteSourceFiles;
 
 // 将函数暴露到全局，以便 onclick 调用
 window.packGame = packGame;

@@ -357,7 +357,7 @@ ipcMain.handle('launch-mtool', async () => {
   }
 });
 
-// ==================== 新增：一键打包（带进度） ====================
+// ==================== 一键打包（带进度，预计算总大小） ====================
 ipcMain.handle('pack-game', async (event, gameId) => {
   try {
     // 读取游戏列表
@@ -386,18 +386,51 @@ ipcMain.handle('pack-game', async (event, gameId) => {
       return { success: false, error: '用户取消' };
     }
 
+    // --- 预计算总大小 ---
+    event.sender.send('pack-progress', {
+      percent: 0,
+      status: '正在计算文件总大小...'
+    });
+
+    // 辅助函数：递归计算文件夹大小
+    async function getFolderSize(dir) {
+      let total = 0;
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          total += await getFolderSize(fullPath);
+        } else if (entry.isFile()) {
+          const stat = await fs.stat(fullPath);
+          total += stat.size;
+        }
+      }
+      return total;
+    }
+
+    let totalBytes = 0;
+    totalBytes += await getFolderSize(gameFolder);
+    if (saveFolder && fs.existsSync(saveFolder) && path.resolve(saveFolder) !== path.resolve(gameFolder)) {
+      totalBytes += await getFolderSize(saveFolder);
+    }
+    // --- 预计算完成 ---
+
     // 创建输出流
     const output = fs.createWriteStream(filePath);
     const archive = archiver('zip', { zlib: { level: 9 } }); // 最高压缩比
 
-    // 监听进度（archiver 的 progress 事件提供已处理字节和总字节）
+    // 监听进度（使用预计算总大小）
     archive.on('progress', (progress) => {
-      const percent = Math.round((progress.fs.processedBytes / progress.fs.totalBytes) * 100) || 0;
+      const percent = totalBytes > 0 
+        ? Math.min(100, Math.round((progress.fs.processedBytes / totalBytes) * 100))
+        : 0;
       const processedMB = (progress.fs.processedBytes / 1024 / 1024).toFixed(2);
-      const totalMB = (progress.fs.totalBytes / 1024 / 1024).toFixed(2);
+      const totalMB = (totalBytes / 1024 / 1024).toFixed(2);
+      const status = `已打包 ${processedMB} MB / ${totalMB} MB (${percent}%)`;
+      
       event.sender.send('pack-progress', {
         percent: percent,
-        status: `已打包 ${processedMB} MB / ${totalMB} MB`
+        status: status
       });
     });
 
@@ -419,13 +452,9 @@ ipcMain.handle('pack-game', async (event, gameId) => {
     archive.directory(gameFolder, gameBaseName);
 
     // 如果存档文件夹存在且与游戏文件夹不同，则添加存档文件夹并重命名
-    if (saveFolder && fs.existsSync(saveFolder)) {
+    if (saveFolder && fs.existsSync(saveFolder) && path.resolve(saveFolder) !== path.resolve(gameFolder)) {
       const saveBaseName = path.basename(saveFolder);
-      // 避免重复添加（当存档文件夹就是游戏文件夹本身时）
-      if (path.resolve(saveFolder) !== path.resolve(gameFolder)) {
-        // 在压缩包内将存档文件夹重命名为 "Savedata-原文件夹名"
-        archive.directory(saveFolder, `Savedata-${saveBaseName}`);
-      }
+      archive.directory(saveFolder, `Savedata-${saveBaseName}`);
     }
 
     // 完成打包
@@ -435,6 +464,38 @@ ipcMain.handle('pack-game', async (event, gameId) => {
     return { success: true, filePath };
   } catch (error) {
     console.error('打包失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ==================== 删除源文件（游戏文件夹和存档文件夹） ====================
+ipcMain.handle('delete-source-files', async (event, gameId) => {
+  try {
+    const games = await fs.readJson(gamesFile);
+    const game = games.find(g => g.id === gameId);
+    if (!game) {
+      return { success: false, error: '游戏不存在' };
+    }
+
+    const gameFolder = game.folderPath;
+    const saveFolder = game.savePath;
+
+    // 检查游戏文件夹是否存在
+    if (!gameFolder || !fs.existsSync(gameFolder)) {
+      return { success: false, error: '游戏文件夹不存在或已被删除' };
+    }
+
+    // 删除游戏文件夹
+    await fs.remove(gameFolder);
+
+    // 如果存档文件夹存在且与游戏文件夹不同，则删除存档文件夹
+    if (saveFolder && fs.existsSync(saveFolder) && path.resolve(saveFolder) !== path.resolve(gameFolder)) {
+      await fs.remove(saveFolder);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('删除源文件失败:', error);
     return { success: false, error: error.message };
   }
 });
