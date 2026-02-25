@@ -1,5 +1,5 @@
 const { ipcRenderer } = require('electron');
-const path = require('path'); // 用于处理路径
+const path = require('path');
 
 // 全局状态
 let games = [];
@@ -15,7 +15,6 @@ let connectionStart = null;
 let dragOffset = { x: 0, y: 0 };
 let tempLine = null;
 
-// 新增编辑状态
 let editingGameId = null; // 当前正在编辑的游戏ID，null表示新增
 
 // 初始化
@@ -25,8 +24,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupNavigation();
   setupDropZone();
   setupModals();
+  setupGameTypeToggle();
 
-  // 监听打包进度
   ipcRenderer.on('pack-progress', (event, progress) => {
     const percent = progress.percent || 0;
     const status = progress.status || '';
@@ -48,10 +47,8 @@ function setupNavigation() {
   navItems.forEach(item => {
     item.addEventListener('click', () => {
       const page = item.dataset.page;
-      
       navItems.forEach(nav => nav.classList.remove('active'));
       item.classList.add('active');
-      
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.getElementById(`${page}-page`).classList.add('active');
     });
@@ -65,52 +62,50 @@ async function loadSettings() {
   document.getElementById('mtool-path').value = settings.mtoolPath || '';
   document.getElementById('locale-emulator-path').value = settings.localeEmulator || '';
   document.getElementById('default-gal-mode').value = settings.defaultGalMode || 'noLocale';
-  
-  // 更新 MTOOL 按钮显示状态
-  updateMtoolButton();
+  updateToolButtons();
 }
 
-function updateMtoolButton() {
+function updateToolButtons() {
+  // 更新 MTool 按钮
   const mtoolBtn = document.getElementById('mtool-btn');
-  if (settings.mtoolPath) {
-    mtoolBtn.style.display = 'inline-flex';
-  } else {
-    mtoolBtn.style.display = 'none';
-  }
+  mtoolBtn.style.display = settings.mtoolPath ? 'inline-flex' : 'none';
+  
+  // 更新翻译器按钮
+  const translatorBtn = document.getElementById('translator-btn');
+  translatorBtn.style.display = settings.translatorTool ? 'inline-flex' : 'none';
 }
 
 async function launchMtool() {
   const result = await ipcRenderer.invoke('launch-mtool');
-  if (!result.success) {
-    alert('启动 MTool 失败: ' + result.error);
+  if (!result.success) alert('启动 MTool 失败: ' + result.error);
+}
+
+async function launchTranslator() {
+  if (!settings.translatorTool) {
+    alert('翻译工具路径未配置');
+    return;
   }
+  const result = await ipcRenderer.invoke('launch-program', {
+    exePath: settings.translatorTool,
+    useLocale: false,
+    localeEmulatorPath: ''
+  });
+  if (!result.success) alert('启动翻译器失败: ' + result.error);
 }
 
 async function selectTranslatorTool() {
-  const path = await ipcRenderer.invoke('select-file', [
-    { name: 'Executable', extensions: ['exe'] }
-  ]);
-  if (path) {
-    document.getElementById('translator-tool-path').value = path;
-  }
+  const path = await ipcRenderer.invoke('select-file', [{ name: 'Executable', extensions: ['exe'] }]);
+  if (path) document.getElementById('translator-tool-path').value = path;
 }
 
 async function selectMtoolPath() {
-  const path = await ipcRenderer.invoke('select-file', [
-    { name: 'Executable/Batch', extensions: ['exe', 'bat'] }
-  ]);
-  if (path) {
-    document.getElementById('mtool-path').value = path;
-  }
+  const path = await ipcRenderer.invoke('select-file', [{ name: 'Executable/Batch', extensions: ['exe', 'bat'] }]);
+  if (path) document.getElementById('mtool-path').value = path;
 }
 
 async function selectLocaleEmulator() {
-  const path = await ipcRenderer.invoke('select-file', [
-    { name: 'Executable', extensions: ['exe'] }
-  ]);
-  if (path) {
-    document.getElementById('locale-emulator-path').value = path;
-  }
+  const path = await ipcRenderer.invoke('select-file', [{ name: 'Executable', extensions: ['exe'] }]);
+  if (path) document.getElementById('locale-emulator-path').value = path;
 }
 
 async function saveSettings() {
@@ -120,11 +115,11 @@ async function saveSettings() {
     localeEmulator: document.getElementById('locale-emulator-path').value,
     defaultGalMode: document.getElementById('default-gal-mode').value
   };
-  
   const result = await ipcRenderer.invoke('save-settings', settings);
   if (result.success) {
     alert('设置已保存');
-    updateMtoolButton();
+    updateToolButtons();
+    renderGames(); // 刷新游戏列表以更新图标等
   } else {
     alert('保存失败: ' + result.error);
   }
@@ -138,18 +133,20 @@ async function loadGames() {
 
 function renderGames() {
   const grid = document.getElementById('games-grid');
-  
   if (games.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-state" style="grid-column: 1 / -1;">
-        <div class="empty-state-icon">🎮</div>
-        <p class="empty-state-text">暂无游戏，点击"添加游戏"或拖拽 exe/bat 文件添加</p>
-      </div>
-    `;
+    grid.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><div class="empty-state-icon">🎮</div><p class="empty-state-text">暂无游戏，点击"添加游戏"或拖拽 exe/bat 文件添加</p></div>`;
     return;
   }
   
-  grid.innerHTML = games.map(game => `
+  grid.innerHTML = games.map(game => {
+    const configIcons = [];
+    if (game.type === 'galgame') {
+      if (game.useLocale) configIcons.push('<span title="使用转区启动">🌐</span>');
+      if (game.autoTranslate && settings.translatorTool) configIcons.push('<span title="自动启动翻译">📖</span>');
+    }
+    const iconsHtml = configIcons.length ? `<div class="game-config-icons">${configIcons.join(' ')}</div>` : '';
+
+    return `
     <div class="game-card ${game.type}" data-id="${game.id}">
       <div class="game-type-header">${getTypeLabel(game.type)}</div>
       <div class="game-image" onclick="selectGameImage('${game.id}')">
@@ -157,17 +154,14 @@ function renderGames() {
       </div>
       <div class="game-info">
         <div class="game-name">${game.name}</div>
+        ${iconsHtml}
         <div class="game-actions">
           <button class="btn btn-small btn-secondary" onclick="openGameFolder('${game.id}')">打开文件夹</button>
           <button class="btn btn-small btn-secondary" onclick="openSaveFolder('${game.id}')">存档</button>
         </div>
         <div class="game-actions-row">
           <button class="btn btn-small btn-primary" onclick="launchGame('${game.id}')">启动</button>
-          ${game.type === 'galgame' && settings.translatorTool ? `
-            <button class="btn btn-small btn-secondary" onclick="launchWithTranslator('${game.id}')">翻译</button>
-          ` : ''}
           <button class="btn btn-small btn-secondary" onclick="openGuide('${game.id}')">攻略</button>
-          <!-- 新增打包按钮 -->
           <button class="btn btn-small btn-secondary" onclick="packGame('${game.id}')">打包</button>
           <button class="btn btn-small btn-danger" onclick="deleteSourceFiles('${game.id}')">删源</button>
           <button class="btn btn-small btn-secondary" onclick="editGame('${game.id}')">编辑</button>
@@ -175,7 +169,7 @@ function renderGames() {
         </div>
       </div>
     </div>
-  `).join('');
+  `}).join('');
 }
 
 function getTypeLabel(type) {
@@ -186,102 +180,67 @@ function getTypeLabel(type) {
 // ==================== 拖放添加游戏 ====================
 function setupDropZone() {
   const dropZone = document.getElementById('drop-zone');
-  
-  // 阻止默认拖放行为
-  document.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  });
-  
-  document.addEventListener('drop', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  });
-  
-  dropZone.addEventListener('dragenter', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZone.classList.add('drag-over');
-  });
-  
-  dropZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZone.classList.add('drag-over');
-  });
-  
-  dropZone.addEventListener('dragleave', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZone.classList.remove('drag-over');
-  });
-  
+  document.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); });
+  document.addEventListener('drop', e => { e.preventDefault(); e.stopPropagation(); });
+  dropZone.addEventListener('dragenter', e => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', e => { e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('drag-over'); });
   dropZone.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZone.classList.remove('drag-over');
-    
-    // 获取拖放的文件
+    e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('drag-over');
     let filePath = null;
-    
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       filePath = e.dataTransfer.files[0].path;
     } else {
-      // 尝试从 dataTransfer.items 获取
       const items = e.dataTransfer.items;
       if (items && items.length > 0) {
         const entry = items[0].webkitGetAsEntry();
-        if (entry) {
-          filePath = e.dataTransfer.getData('text/plain') || items[0].getAsFile()?.path;
-        }
+        if (entry) filePath = e.dataTransfer.getData('text/plain') || items[0].getAsFile()?.path;
       }
     }
-    
-    // 如果没有获取到路径，尝试其他方式
-    if (!filePath && e.dataTransfer.getData('text/plain')) {
-      filePath = e.dataTransfer.getData('text/plain');
-    }
-    
+    if (!filePath && e.dataTransfer.getData('text/plain')) filePath = e.dataTransfer.getData('text/plain');
     if (filePath) {
       const ext = filePath.toLowerCase();
       if (ext.endsWith('.exe') || ext.endsWith('.bat')) {
         const result = await ipcRenderer.invoke('drop-game', filePath);
-        if (result.success) {
-          openAddGameModalWithData(result.data);
-        } else {
-          alert(result.error);
-        }
-      } else {
-        alert('只支持 exe 或 bat 文件');
-      }
+        if (result.success) openAddGameModalWithData(result.data);
+        else alert(result.error);
+      } else alert('只支持 exe 或 bat 文件');
     }
   });
 }
 
-// ==================== 添加游戏弹窗 ====================
+// ==================== 添加游戏弹窗与 Galgame 选项联动 ====================
 let pendingGameData = null;
 
 function setupModals() {
   document.getElementById('add-game-btn').addEventListener('click', () => {
-    // 点击添加按钮：重置为新增模式
     editingGameId = null;
     pendingGameData = null;
     openAddGameModal();
   });
 }
 
+function setupGameTypeToggle() {
+  const typeSelect = document.getElementById('game-type');
+  const galgameOptions = document.getElementById('galgame-options');
+  typeSelect.addEventListener('change', () => {
+    galgameOptions.style.display = typeSelect.value === 'galgame' ? 'block' : 'none';
+  });
+}
+
 function openAddGameModal() {
-  // 确保模态框标题正确
   document.querySelector('#add-game-modal .modal-header h3').textContent = '添加游戏';
   document.getElementById('add-game-modal').classList.add('active');
   document.getElementById('game-name').value = '';
   document.getElementById('game-type').value = 'galgame';
   document.getElementById('game-exe-path').value = '';
   document.getElementById('game-save-path').value = '';
+  document.getElementById('game-use-locale').checked = false;
+  document.getElementById('game-auto-translate').checked = false;
+  document.getElementById('galgame-options').style.display = 'block';
 }
 
 function openAddGameModalWithData(data) {
-  // 拖拽添加：使用预填充数据，仍为新增模式
   editingGameId = null;
   pendingGameData = data;
   document.querySelector('#add-game-modal .modal-header h3').textContent = '添加游戏';
@@ -290,30 +249,26 @@ function openAddGameModalWithData(data) {
   document.getElementById('game-type').value = data.type;
   document.getElementById('game-exe-path').value = data.exePath;
   document.getElementById('game-save-path').value = '';
+  document.getElementById('game-use-locale').checked = false;
+  document.getElementById('game-auto-translate').checked = false;
+  document.getElementById('galgame-options').style.display = data.type === 'galgame' ? 'block' : 'none';
 }
 
 function closeAddGameModal() {
   document.getElementById('add-game-modal').classList.remove('active');
   editingGameId = null;
   pendingGameData = null;
-  // 恢复模态框标题（以便下次打开正确）
   document.querySelector('#add-game-modal .modal-header h3').textContent = '添加游戏';
 }
 
 async function selectGameExe() {
-  const path = await ipcRenderer.invoke('select-file', [
-    { name: 'Executable/Batch', extensions: ['exe', 'bat'] }
-  ]);
-  if (path) {
-    document.getElementById('game-exe-path').value = path;
-  }
+  const path = await ipcRenderer.invoke('select-file', [{ name: 'Executable/Batch', extensions: ['exe', 'bat'] }]);
+  if (path) document.getElementById('game-exe-path').value = path;
 }
 
 async function selectSaveFolder() {
   const path = await ipcRenderer.invoke('select-folder');
-  if (path) {
-    document.getElementById('game-save-path').value = path;
-  }
+  if (path) document.getElementById('game-save-path').value = path;
 }
 
 async function confirmAddGame() {
@@ -321,30 +276,30 @@ async function confirmAddGame() {
   const type = document.getElementById('game-type').value;
   const exePath = document.getElementById('game-exe-path').value;
   const savePath = document.getElementById('game-save-path').value;
-  
+  const useLocale = document.getElementById('game-use-locale').checked;
+  const autoTranslate = document.getElementById('game-auto-translate').checked;
+
   if (!name || !exePath) {
     alert('请填写游戏名称和程序文件');
     return;
   }
-  
+
   if (editingGameId) {
-    // === 编辑模式 ===
     const index = games.findIndex(g => g.id === editingGameId);
     if (index === -1) {
       alert('游戏不存在，请刷新重试');
       return;
     }
-
-    // 更新游戏对象
     const updatedGame = {
       ...games[index],
       name,
       type,
       exePath,
       savePath,
-      folderPath: path.dirname(exePath) // 根据新的 exe 路径更新文件夹路径
+      folderPath: path.dirname(exePath),
+      useLocale,
+      autoTranslate
     };
-
     games[index] = updatedGame;
     const result = await ipcRenderer.invoke('save-games', games);
     if (result.success) {
@@ -354,16 +309,16 @@ async function confirmAddGame() {
       alert('保存失败: ' + result.error);
     }
   } else {
-    // === 新增模式 ===
     const game = {
       name,
       type,
       exePath,
       savePath,
       folderPath: pendingGameData ? pendingGameData.folderPath : path.dirname(exePath),
-      image: null
+      image: null,
+      useLocale,
+      autoTranslate
     };
-    
     const result = await ipcRenderer.invoke('add-game', game);
     if (result.success) {
       games.push(result.game);
@@ -377,7 +332,6 @@ async function confirmAddGame() {
 
 async function deleteGame(gameId) {
   if (!confirm('确定要删除这个游戏吗？')) return;
-  
   const result = await ipcRenderer.invoke('delete-game', gameId);
   if (result.success) {
     games = games.filter(g => g.id !== gameId);
@@ -402,81 +356,78 @@ async function selectGameImage(gameId) {
 
 async function openGameFolder(gameId) {
   const game = games.find(g => g.id === gameId);
-  if (game) {
-    await ipcRenderer.invoke('open-folder', game.folderPath);
-  }
+  if (game) await ipcRenderer.invoke('open-folder', game.folderPath);
 }
 
 async function openSaveFolder(gameId) {
   const game = games.find(g => g.id === gameId);
-  if (game && game.savePath) {
-    await ipcRenderer.invoke('open-folder', game.savePath);
-  } else {
-    alert('未设置存档文件夹');
-  }
+  if (game && game.savePath) await ipcRenderer.invoke('open-folder', game.savePath);
+  else alert('未设置存档文件夹');
 }
 
 async function launchGame(gameId) {
   const game = games.find(g => g.id === gameId);
   if (!game) return;
-  
+
+  if (game.type === 'galgame' && !settings.translatorTool) {
+    alert('您尚未配置翻译工具路径，翻译功能将不可用。如需使用，请在设置中配置。');
+  }
+
+  if (game.type === 'galgame' && game.autoTranslate && settings.translatorTool) {
+    const translateResult = await ipcRenderer.invoke('launch-program', {
+      exePath: settings.translatorTool,
+      useLocale: false,
+      localeEmulatorPath: ''
+    });
+    if (!translateResult.success) {
+      alert('启动翻译工具失败: ' + translateResult.error);
+    }
+    setTimeout(async () => {
+      await launchGameInternal(game);
+    }, 1000);
+  } else {
+    await launchGameInternal(game);
+  }
+}
+
+async function launchGameInternal(game) {
   let useLocale = false;
   if (game.type === 'galgame') {
-    useLocale = settings.defaultGalMode === 'locale';
+    if (game.useLocale !== undefined) {
+      useLocale = game.useLocale;
+    } else {
+      useLocale = settings.defaultGalMode === 'locale';
+    }
   }
-  
+
   const result = await ipcRenderer.invoke('launch-program', {
     exePath: game.exePath,
     useLocale,
     localeEmulatorPath: settings.localeEmulator
   });
-  
+
   if (!result.success) {
     alert('启动失败: ' + result.error);
   }
 }
 
-async function launchWithTranslator(gameId) {
-  const game = games.find(g => g.id === gameId);
-  if (!game) return;
-  
-  if (settings.translatorTool) {
-    await ipcRenderer.invoke('launch-program', {
-      exePath: settings.translatorTool,
-      useLocale: false,
-      localeEmulatorPath: ''
-    });
-  }
-  
-  setTimeout(async () => {
-    let useLocale = settings.defaultGalMode === 'locale';
-    await ipcRenderer.invoke('launch-program', {
-      exePath: game.exePath,
-      useLocale,
-      localeEmulatorPath: settings.localeEmulator
-    });
-  }, 1000);
-}
-
-// ==================== 新增编辑功能 ====================
 function editGame(gameId) {
   const game = games.find(g => g.id === gameId);
   if (!game) return;
 
   editingGameId = gameId;
-  pendingGameData = null; // 清除拖拽预填充数据
+  pendingGameData = null;
 
-  // 填充表单
   document.getElementById('game-name').value = game.name;
   document.getElementById('game-type').value = game.type;
   document.getElementById('game-exe-path').value = game.exePath;
   document.getElementById('game-save-path').value = game.savePath || '';
+  document.getElementById('game-use-locale').checked = game.useLocale || false;
+  document.getElementById('game-auto-translate').checked = game.autoTranslate || false;
 
-  // 修改模态框标题
   document.querySelector('#add-game-modal .modal-header h3').textContent = '编辑游戏';
-
-  // 显示模态框
   document.getElementById('add-game-modal').classList.add('active');
+  document.getElementById('galgame-options').style.display = game.type === 'galgame' ? 'block' : 'none';
 }
 
 // ==================== 攻略编辑器 ====================
@@ -487,10 +438,7 @@ async function openGuide(gameId) {
   if (savedGuide) {
     guideData = savedGuide;
   } else {
-    guideData = {
-      nodes: [],
-      connections: []
-    };
+    guideData = { nodes: [], connections: [] };
   }
   
   initGuideEditor();
@@ -514,7 +462,6 @@ function initGuideEditor() {
   const container = document.getElementById('guide-flow-container');
   container.innerHTML = '';
   
-  // 创建 SVG 层
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.id = 'guide-svg';
   svg.className.baseVal = 'guide-svg';
@@ -531,19 +478,14 @@ function initGuideEditor() {
   `;
   container.appendChild(svg);
   
-  // 创建节点容器
   const nodesContainer = document.createElement('div');
   nodesContainer.id = 'nodes-container';
   nodesContainer.style.cssText = 'position: absolute; top: 0; left: 0; width: 3000px; height: 3000px; z-index: 2;';
   container.appendChild(nodesContainer);
   
-  // 渲染所有节点
   guideData.nodes.forEach(node => renderGuideNode(node));
-  
-  // 渲染所有连接
   renderGuideConnections();
   
-  // 绑定容器事件
   container.addEventListener('mousemove', handleContainerMouseMove);
   container.addEventListener('mouseup', handleContainerMouseUp);
   container.addEventListener('click', (e) => {
@@ -587,7 +529,6 @@ function renderGuideNode(node) {
     'multi-out': '一入多出'
   }[node.type];
   
-  // 构建输入端口列表
   const inputsHtml = node.inputs.map((input, i) => `
     <div class="port-row input-row" data-node="${node.id}">
       <div class="port-handle input" 
@@ -605,7 +546,6 @@ function renderGuideNode(node) {
     </div>
   `).join('');
   
-  // 构建输出端口列表
   const outputsHtml = node.outputs.map((output, i) => `
     <div class="port-row output-row" data-node="${node.id}">
       <input type="text" class="port-label-input" value="${output}"
@@ -660,7 +600,6 @@ function startNodeDrag(e, nodeId) {
   dragOffset.x = e.clientX - nodeEl.getBoundingClientRect().left;
   dragOffset.y = e.clientY - nodeEl.getBoundingClientRect().top;
   
-  // 高亮选中节点
   document.querySelectorAll('.flow-node').forEach(el => el.classList.remove('selected'));
   nodeEl.classList.add('selected');
 }
@@ -680,7 +619,6 @@ function handleContainerMouseMove(e) {
     nodeEl.style.left = selectedNode.x + 'px';
     nodeEl.style.top = selectedNode.y + 'px';
     
-    // 实时更新连接线
     renderGuideConnections();
   }
   
@@ -731,7 +669,6 @@ function addPort(nodeId, portType) {
     node.outputs.push(`出口${node.outputs.length + 1}`);
   }
   
-  // 重新渲染节点
   const nodeEl = document.getElementById(nodeId);
   nodeEl.remove();
   renderGuideNode(node);
@@ -743,10 +680,8 @@ function removePort(nodeId, portType, index) {
   const node = guideData.nodes.find(n => n.id === nodeId);
   if (!node) return;
   
-  // 删除相关连接
   if (portType === 'input') {
     guideData.connections = guideData.connections.filter(c => !(c.toNode === nodeId && c.toPort === index));
-    // 调整其他连接的端口索引
     guideData.connections.forEach(c => {
       if (c.toNode === nodeId && c.toPort > index) {
         c.toPort--;
@@ -827,17 +762,14 @@ function createBezierPath(x1, y1, x2, y2) {
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
 
-// 绑定端口mouseup事件来完成连接
 document.addEventListener('mouseup', (e) => {
   if (isConnecting && connectionStart) {
-    // 检查是否落在输入端口上
     const target = document.elementFromPoint(e.clientX, e.clientY);
     if (target && target.classList.contains('port-handle') && target.dataset.type === 'input') {
       const toNodeId = target.dataset.node;
       const toPortIndex = parseInt(target.dataset.port);
       
       if (toNodeId !== connectionStart.nodeId) {
-        // 创建连接
         const connection = {
           fromNode: connectionStart.nodeId,
           fromPort: connectionStart.portIndex,
@@ -845,7 +777,6 @@ document.addEventListener('mouseup', (e) => {
           toPort: toPortIndex
         };
         
-        // 检查是否已存在
         const exists = guideData.connections.some(c => 
           c.fromNode === connection.fromNode && 
           c.fromPort === connection.fromPort &&
@@ -861,7 +792,6 @@ document.addEventListener('mouseup', (e) => {
       }
     }
     
-    // 清除临时连接
     isConnecting = false;
     connectionStart = null;
     const tempPath = document.getElementById('temp-connection');
@@ -927,75 +857,44 @@ function clearGuide() {
   saveGuide();
 }
 
-// ==================== 新增：一键打包（带进度） ====================
+// ==================== 一键打包（带进度） ====================
 async function packGame(gameId) {
   const game = games.find(g => g.id === gameId);
-  if (!game) {
-    alert('游戏不存在');
-    return;
-  }
-
-  // 确认打包
-  if (!confirm(`确定要打包游戏“${game.name}”吗？\n将包含游戏文件夹和存档文件夹。`)) {
-    return;
-  }
-
-  // 显示进度模态框
+  if (!game) { alert('游戏不存在'); return; }
+  if (!confirm(`确定要打包游戏“${game.name}”吗？\n将包含游戏文件夹和存档文件夹。`)) return;
   const modal = document.getElementById('pack-progress-modal');
   modal.classList.add('active');
   document.getElementById('pack-progress-fill').style.width = '0%';
   document.getElementById('pack-progress-status').textContent = '正在计算文件大小...';
-
   try {
     const result = await ipcRenderer.invoke('pack-game', gameId);
-    if (result.success) {
-      alert(`打包成功！\n文件已保存到：${result.filePath}`);
-    } else {
-      alert('打包失败：' + result.error);
-    }
+    if (result.success) alert(`打包成功！\n文件已保存到：${result.filePath}`);
+    else alert('打包失败：' + result.error);
   } catch (error) {
     alert('打包出错：' + error.message);
   } finally {
-    // 隐藏进度模态框
     modal.classList.remove('active');
   }
 }
 
-// ==================== 删除源文件（游戏文件夹和存档文件夹） ====================
+// ==================== 删除源文件 ====================
 async function deleteSourceFiles(gameId) {
   const game = games.find(g => g.id === gameId);
-  if (!game) {
-    alert('游戏不存在');
-    return;
-  }
-
-  // 构建提示信息
+  if (!game) { alert('游戏不存在'); return; }
   let message = `确定要永久删除以下文件夹吗？\n此操作不可恢复！\n\n游戏文件夹：${game.folderPath}`;
-  if (game.savePath && game.savePath !== game.folderPath) {
-    message += `\n存档文件夹：${game.savePath}`;
-  }
-
-  if (!confirm(message)) {
-    return;
-  }
-
-  // 二次确认（更谨慎）
-  if (!confirm('再次确认：删除后将无法恢复，确定继续？')) {
-    return;
-  }
-
+  if (game.savePath && game.savePath !== game.folderPath) message += `\n存档文件夹：${game.savePath}`;
+  if (!confirm(message)) return;
+  if (!confirm('再次确认：删除后将无法恢复，确定继续？')) return;
   const result = await ipcRenderer.invoke('delete-source-files', gameId);
   if (result.success) {
     alert('源文件删除成功！');
-    // 刷新游戏列表（游戏记录仍在，但文件夹已删）
     await loadGames();
   } else {
     alert('删除失败：' + result.error);
   }
 }
 
-// 暴露到全局
+// 暴露全局函数
 window.deleteSourceFiles = deleteSourceFiles;
-
-// 将函数暴露到全局，以便 onclick 调用
 window.packGame = packGame;
+window.launchTranslator = launchTranslator; // 新增，供按钮调用

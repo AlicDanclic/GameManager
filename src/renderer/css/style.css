@@ -40,12 +40,12 @@ body {
   left: 0;
   width: 100%;
   height: 32px;
-  background-color: #1a1a1a; /* 深灰色，与侧边栏一致 */
+  background-color: #1a1a1a;
   color: white;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  -webkit-app-region: drag; /* 整个标题栏可拖动 */
+  -webkit-app-region: drag;
   z-index: 1001;
   user-select: none;
 }
@@ -61,7 +61,7 @@ body {
 .titlebar-controls {
   display: flex;
   height: 100%;
-  -webkit-app-region: no-drag; /* 按钮区域不可拖动 */
+  -webkit-app-region: no-drag;
 }
 
 .titlebar-btn {
@@ -326,17 +326,26 @@ body {
 .game-name {
   font-size: 16px;
   font-weight: 600;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.game-config-icons {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
 .game-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 8px;
 }
 
 .game-actions .btn {
@@ -540,6 +549,25 @@ body {
   border-color: var(--btn-primary);
 }
 
+/* 复选框样式 */
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.checkbox-item label {
+  font-weight: 500;
+  margin-bottom: 0;
+  cursor: pointer;
+}
+
 /* 攻略编辑器 */
 .guide-toolbar {
   display: flex;
@@ -572,7 +600,7 @@ body {
   background-color: white;
   border: 2px solid #333;
   border-radius: 8px;
-  min-width: 240px; /* 增大宽度以适应左右分栏 */
+  min-width: 240px;
   box-shadow: var(--shadow);
   user-select: none;
   cursor: grab;
@@ -654,7 +682,7 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0; /* 防止内容溢出 */
+  min-width: 0;
 }
 
 /* 基础端口行样式 */
@@ -766,7 +794,7 @@ body {
 }
 
 .output-row .port-handle {
-  margin-left: auto; /* 将手柄推到最右侧 */
+  margin-left: auto;
   order: 2;
 }
 

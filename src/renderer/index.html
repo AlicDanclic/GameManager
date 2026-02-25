@@ -45,6 +45,9 @@
             <button id="mtool-btn" class="btn btn-secondary" onclick="launchMtool()" style="display: none;">
               🔧 启动 MTool
             </button>
+            <button id="translator-btn" class="btn btn-secondary" onclick="launchTranslator()" style="display: none;">
+              📖 启动翻译器
+            </button>
             <button id="add-game-btn" class="btn btn-primary">+ 添加游戏</button>
           </div>
         </header>
@@ -137,6 +140,19 @@
             <option value="unity">Unity</option>
           </select>
         </div>
+        <!-- Galgame 专属配置选项 -->
+        <div id="galgame-options" class="form-group" style="display: block;">
+          <div class="checkbox-item">
+            <input type="checkbox" id="game-use-locale">
+            <label for="game-use-locale">使用转区启动</label>
+            <span class="setting-desc" style="display: inline; margin-left: 8px;">（若未配置转区工具，此项无效）</span>
+          </div>
+          <div class="checkbox-item" style="margin-top: 8px;">
+            <input type="checkbox" id="game-auto-translate">
+            <label for="game-auto-translate">自动启动翻译工具</label>
+            <span class="setting-desc" style="display: inline; margin-left: 8px;">（需先配置翻译工具路径）</span>
+          </div>
+        </div>
         <div class="form-group">
           <label>程序文件</label>
           <div class="input-group">
@@ -179,7 +195,7 @@
     </div>
   </div>
 
-  <!-- 打包进度模态框（新增） -->
+  <!-- 打包进度模态框 -->
   <div id="pack-progress-modal" class="modal">
     <div class="modal-content" style="max-width: 400px;">
       <div class="modal-header">
