@@ -376,7 +376,7 @@ ipcMain.handle('save-file', async (event, { defaultPath, content }) => {
   }
 });
 
-// ==================== 一键打包（带进度，预计算总大小） ====================
+// ==================== 一键打包（带进度，预计算总大小，包含攻略文件） ====================
 ipcMain.handle('pack-game', async (event, gameId) => {
   try {
     // 读取游戏列表
@@ -432,6 +432,12 @@ ipcMain.handle('pack-game', async (event, gameId) => {
     if (saveFolder && fs.existsSync(saveFolder) && path.resolve(saveFolder) !== path.resolve(gameFolder)) {
       totalBytes += await getFolderSize(saveFolder);
     }
+    
+    // 如果存在攻略，预估攻略文件大小（通常很小，粗略估算1KB）
+    const guides = await fs.readJson(guidesFile);
+    if (guides[gameId]) {
+      totalBytes += 1024; 
+    }
     // --- 预计算完成 ---
 
     // 创建输出流
@@ -475,6 +481,16 @@ ipcMain.handle('pack-game', async (event, gameId) => {
       const saveBaseName = path.basename(saveFolder);
       archive.directory(saveFolder, `Savedata-${saveBaseName}`);
     }
+
+    // ==================== 新增：添加攻略文件 ====================
+    if (guides[gameId]) {
+      // 将攻略数据序列化为JSON字符串
+      const guideContent = JSON.stringify(guides[gameId], null, 2);
+      // 添加到压缩包，文件名为"游戏名.gwalk"
+      archive.append(guideContent, { name: `${game.name}.gwalk` });
+      console.log(`已添加攻略文件: ${game.name}.gwalk`);
+    }
+    // =========================================================
 
     // 完成打包
     await archive.finalize();
