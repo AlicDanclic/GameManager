@@ -568,7 +568,7 @@ body {
   cursor: pointer;
 }
 
-/* 攻略编辑器 */
+/* ==================== 攻略编辑器 (全面优化) ==================== */
 .guide-toolbar {
   display: flex;
   gap: 10px;
@@ -589,18 +589,19 @@ body {
   position: relative;
   overflow: auto;
   background-color: #fafafa;
-  background-image: 
-    radial-gradient(circle, #ddd 1px, transparent 1px);
+  background-image: radial-gradient(circle, #ddd 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
-/* 节点样式 */
+/* 节点样式 - 宽度完全由内容决定 */
 .flow-node {
   position: absolute;
   background-color: white;
   border: 2px solid #333;
   border-radius: 8px;
-  min-width: 240px;
+  width: max-content;          /* 关键：宽度由内容撑开 */
+  min-width: auto;             /* 移除任何最小宽度 */
+  max-width: none;             /* 不限制最大宽度（可改为具体值如600px如果需限制） */
   box-shadow: var(--shadow);
   user-select: none;
   cursor: grab;
@@ -615,14 +616,16 @@ body {
   box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.3);
 }
 
+/* 节点头部 */
 .node-header {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background-color: #333;
   color: white;
   border-radius: 6px 6px 0 0;
   cursor: grab;
+  gap: 4px;
 }
 
 .node-header:active {
@@ -631,27 +634,41 @@ body {
 
 .node-type-icon {
   font-size: 11px;
-  margin-right: 8px;
-  padding: 2px 6px;
+  padding: 2px 4px;
   background-color: rgba(255,255,255,0.2);
   border-radius: 3px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
+/* 节点标题输入框 - 改为 contenteditable div */
 .node-title-input {
-  flex: 1;
   background: transparent;
   border: none;
   color: white;
   font-size: 13px;
   font-weight: 500;
   outline: none;
-  padding: 2px;
+  padding: 2px 4px;        /* 稍微增加一点内边距让点击区域更大 */
+  margin: 0 4px;           /* 与前后元素的间距 */
+  
+  /* 关键：让 div 像行内元素一样根据内容调整宽度 */
+  display: inline-block;
+  width: auto;             /* 宽度 = 内容实际宽度 */
+  min-width: 2ch;          /* 至少能显示 2 个字符 */
+  max-width: none;         /* 不限制最大宽度 */
+  
+  white-space: nowrap;     /* 不换行 */
+  overflow: hidden;        /* 隐藏溢出（配合 nowrap） */
+  cursor: text;
+  user-select: text;       /* 允许文本选择 */
+  border-radius: 3px;
+  line-height: 1.2;        /* 确保行高正常 */
+  vertical-align: middle;  /* 垂直居中 */
 }
 
 .node-title-input:focus {
   background: rgba(255,255,255,0.2);
-  border-radius: 3px;
 }
 
 .node-delete-btn {
@@ -662,41 +679,42 @@ body {
   font-size: 18px;
   line-height: 1;
   padding: 0 4px;
-  margin-left: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .node-delete-btn:hover {
   color: #ff6666;
 }
 
-/* 节点端口左右分栏容器 */
+/* 节点端口左右分栏容器 - 修改为不自动拉伸子项 */
 .node-ports-container {
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
-  gap: 8px;
+  padding: 6px 0;
+  gap: 4px;
 }
 
 .node-inputs,
 .node-outputs {
-  flex: 1;
+  flex: 0 1 auto;               /* 关键：禁止拉伸，宽度由内容决定 */
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-/* 基础端口行样式 */
+/* 端口行 - 极小间距 */
 .port-row {
   display: flex;
   align-items: center;
-  padding: 4px 12px;
-  position: relative;
-  gap: 4px;
+  padding: 2px 4px;
+  gap: 2px;
+  flex: 0 1 auto;               /* 禁止拉伸 */
 }
 
 .port-handle {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background-color: #666;
   border: 2px solid white;
@@ -722,32 +740,43 @@ body {
   box-shadow: 0 0 0 2px #333;
 }
 
+/* 端口标签输入框 - 改为 contenteditable div */
 .port-label-input {
-  flex: 1;
   background: transparent;
   border: none;
   font-size: 12px;
   color: var(--text-secondary);
   outline: none;
-  padding: 2px 8px;
-  margin: 0 4px;
-  min-width: 60px;
+  padding: 2px 4px;        /* 增加内边距让点击更容易 */
+  
+  /* 关键：行内块级，宽度跟随内容 */
+  display: inline-block;
+  width: auto;
+  min-width: 1ch;          /* 至少 1 个字符 */
+  max-width: none;
+  
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: text;
+  user-select: text;
+  border-radius: 3px;
+  line-height: 1.2;
 }
 
 .port-label-input:focus {
   background: var(--bg-secondary);
-  border-radius: 3px;
 }
 
+/* 添加/删除按钮 */
 .port-add-btn {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background-color: var(--btn-primary);
   color: white;
   border: none;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -760,14 +789,14 @@ body {
 }
 
 .port-remove-btn {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background-color: #ff9999;
   color: white;
   border: none;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1;
   display: none;
   align-items: center;
@@ -783,12 +812,12 @@ body {
   background-color: #ff6666;
 }
 
-/* 输入行：手柄在左，标签在中间，按钮在右 */
+/* 输入行：手柄在左 */
 .input-row .port-handle {
-  margin-right: 4px;
+  margin-right: 2px;
 }
 
-/* 输出行：手柄在右，标签在中间，按钮在左 */
+/* 输出行：手柄在右 */
 .output-row {
   justify-content: flex-start;
 }

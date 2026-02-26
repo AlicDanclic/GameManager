@@ -357,6 +357,24 @@ ipcMain.handle('launch-mtool', async () => {
   }
 });
 
+// ==================== 新增：保存文件（用于导出攻略，仅支持 .gwalk） ====================
+ipcMain.handle('save-file', async (event, { defaultPath, content }) => {
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: '保存攻略文件',
+      defaultPath: defaultPath,
+      filters: [{ name: '攻略文件', extensions: ['gwalk'] }] // 只允许 .gwalk 扩展名
+    });
+    if (canceled || !filePath) {
+      return { success: false, canceled: true };
+    }
+    await fs.writeFile(filePath, content, 'utf8');
+    return { success: true, filePath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // ==================== 一键打包（带进度，预计算总大小） ====================
 ipcMain.handle('pack-game', async (event, gameId) => {
   try {

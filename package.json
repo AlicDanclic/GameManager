@@ -1,6 +1,6 @@
 {
   "name": "game-manager",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "游戏管理软件 - 管理Galgame、RPG和Unity游戏",
   "main": "src/main/main.js",
   "scripts": {
@@ -18,19 +18,7 @@
   },
   "dependencies": {
     "archiver": "^5.3.1",
-    "archiver-utils": "^5.0.2",
-    "async": "^3.2.6",
-    "balanced-match": "^4.0.4",
-    "brace-expansion": "^5.0.3",
-    "fs-extra": "^10.1.0",
-    "graceful-fs": "^4.2.11",
-    "is-stream": "^2.0.1",
-    "jsonfile": "^6.2.0",
-    "lazystream": "^1.0.1",
-    "minimatch": "^5.1.0",
-    "readable-stream": "^3.6.2",
-    "readdir-glob": "^3.0.0",
-    "universalify": "^2.0.1"
+    "fs-extra": "^10.1.0"
   },
   "build": {
     "appId": "com.gamemanager.app",

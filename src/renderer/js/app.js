@@ -1,5 +1,6 @@
 const { ipcRenderer } = require('electron');
 const path = require('path');
+const fs = require('fs'); // 用于导入攻略时读取文件
 
 // 全局状态
 let games = [];
@@ -534,9 +535,11 @@ function renderGuideNode(node) {
       <div class="port-handle input" 
            data-node="${node.id}" data-port="${i}" data-type="input"
            onmousedown="startConnection(event, '${node.id}', ${i}, 'input')"></div>
-      <input type="text" class="port-label-input" value="${input}"
-             onchange="updatePortLabel('${node.id}', 'input', ${i}, this.value)"
-             onclick="event.stopPropagation()">
+      <div contenteditable="true" class="port-label-input"
+           onblur="updatePortLabel('${node.id}', 'input', ${i}, this.textContent)"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+           onpaste="handlePaste(event)"
+           onclick="event.stopPropagation()">${input}</div>
       ${node.type !== 'single' && i === node.inputs.length - 1 ? `
         <button class="port-add-btn" onclick="addPort('${node.id}', 'input')">+</button>
       ` : ''}
@@ -548,9 +551,11 @@ function renderGuideNode(node) {
   
   const outputsHtml = node.outputs.map((output, i) => `
     <div class="port-row output-row" data-node="${node.id}">
-      <input type="text" class="port-label-input" value="${output}"
-             onchange="updatePortLabel('${node.id}', 'output', ${i}, this.value)"
-             onclick="event.stopPropagation()">
+      <div contenteditable="true" class="port-label-input"
+           onblur="updatePortLabel('${node.id}', 'output', ${i}, this.textContent)"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+           onpaste="handlePaste(event)"
+           onclick="event.stopPropagation()">${output}</div>
       ${node.type !== 'single' && i === node.outputs.length - 1 ? `
         <button class="port-add-btn" onclick="addPort('${node.id}', 'output')">+</button>
       ` : ''}
@@ -566,9 +571,11 @@ function renderGuideNode(node) {
   nodeEl.innerHTML = `
     <div class="node-header" onmousedown="startNodeDrag(event, '${node.id}')">
       <span class="node-type-icon">${typeLabel}</span>
-      <input type="text" class="node-title-input" value="${node.title}" 
-             onchange="updateNodeTitle('${node.id}', this.value)"
-             onclick="event.stopPropagation()">
+      <div contenteditable="true" class="node-title-input" 
+           onblur="updateNodeTitle('${node.id}', this.textContent)"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+           onpaste="handlePaste(event)"
+           onclick="event.stopPropagation()">${node.title}</div>
       <button class="node-delete-btn" onclick="deleteGuideNode('${node.id}')">&times;</button>
     </div>
     <div class="node-ports-container">
@@ -585,7 +592,7 @@ function renderGuideNode(node) {
 }
 
 function startNodeDrag(e, nodeId) {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.isContentEditable) return;
   
   e.preventDefault();
   e.stopPropagation();
@@ -642,7 +649,7 @@ function deselectAllNodes() {
 function updateNodeTitle(nodeId, title) {
   const node = guideData.nodes.find(n => n.id === nodeId);
   if (node) {
-    node.title = title;
+    node.title = title.trim();
     saveGuide();
   }
 }
@@ -650,10 +657,11 @@ function updateNodeTitle(nodeId, title) {
 function updatePortLabel(nodeId, portType, index, label) {
   const node = guideData.nodes.find(n => n.id === nodeId);
   if (node) {
+    const trimmedLabel = label.trim();
     if (portType === 'input') {
-      node.inputs[index] = label;
+      node.inputs[index] = trimmedLabel;
     } else {
-      node.outputs[index] = label;
+      node.outputs[index] = trimmedLabel;
     }
     saveGuide();
   }
@@ -857,6 +865,60 @@ function clearGuide() {
   saveGuide();
 }
 
+// ==================== 导出攻略（使用 .gwalk 后缀） ====================
+window.exportGuide = async function() {
+  if (!currentGuideGameId) {
+    alert('没有正在编辑的攻略');
+    return;
+  }
+
+  const game = games.find(g => g.id === currentGuideGameId);
+  const defaultName = game ? `${game.name}_攻略.gwalk` : 'guide.gwalk'; // 后缀改为 .gwalk
+
+  const content = JSON.stringify(guideData, null, 2);
+
+  const result = await ipcRenderer.invoke('save-file', {
+    defaultPath: defaultName,
+    content: content
+  });
+
+  if (result.success) {
+    alert(`攻略已导出到：${result.filePath}`);
+  } else if (!result.canceled) {
+    alert('导出失败：' + result.error);
+  }
+};
+
+// ==================== 导入攻略（支持 .gwalk 和 .json） ====================
+window.importGuide = async function() {
+  if (!currentGuideGameId) {
+    alert('没有正在编辑的攻略');
+    return;
+  }
+
+  // 修改过滤器：同时支持 gwalk 和 json
+  const filePath = await ipcRenderer.invoke('select-file', [{ name: '攻略文件', extensions: ['gwalk', 'json'] }]);
+  if (!filePath) return;
+
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const importedData = JSON.parse(content);
+
+    if (!importedData || typeof importedData !== 'object' ||
+        !Array.isArray(importedData.nodes) || !Array.isArray(importedData.connections)) {
+      alert('无效的攻略文件：缺少 nodes 或 connections 数组');
+      return;
+    }
+
+    guideData = importedData;
+    initGuideEditor();
+    await saveGuide();
+    alert('攻略导入成功');
+  } catch (error) {
+    alert('导入失败：' + error.message);
+  }
+};
+
 // ==================== 一键打包（带进度） ====================
 async function packGame(gameId) {
   const game = games.find(g => g.id === gameId);
@@ -894,7 +956,14 @@ async function deleteSourceFiles(gameId) {
   }
 }
 
+// 辅助函数：处理粘贴，只保留纯文本（防止富文本破坏布局）
+function handlePaste(e) {
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+  document.execCommand('insertText', false, text);
+}
+
 // 暴露全局函数
 window.deleteSourceFiles = deleteSourceFiles;
 window.packGame = packGame;
-window.launchTranslator = launchTranslator; // 新增，供按钮调用
+window.launchTranslator = launchTranslator; // 供按钮调用
