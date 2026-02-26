@@ -485,7 +485,11 @@ function initGuideEditor() {
   container.appendChild(nodesContainer);
   
   guideData.nodes.forEach(node => renderGuideNode(node));
-  renderGuideConnections();
+  
+  // 关键修复：延迟渲染连线，确保浏览器已完成节点布局计算
+  requestAnimationFrame(() => {
+    renderGuideConnections();
+  });
   
   container.addEventListener('mousemove', handleContainerMouseMove);
   container.addEventListener('mouseup', handleContainerMouseUp);
@@ -494,8 +498,7 @@ function initGuideEditor() {
       deselectAllNodes();
     }
   });
-}
-
+}v
 function addGuideNode(type) {
   const container = document.getElementById('guide-flow-container');
   const rect = container.getBoundingClientRect();
