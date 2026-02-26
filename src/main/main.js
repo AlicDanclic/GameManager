@@ -51,7 +51,8 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       enableRemoteModule: true,
-      webSecurity: false
+      webSecurity: false,
+      devTools: false
     },
     show: false
   });

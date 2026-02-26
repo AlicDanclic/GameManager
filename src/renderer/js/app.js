@@ -589,6 +589,11 @@ function renderGuideNode(node) {
   `;
   
   container.appendChild(nodeEl);
+  
+  // 关键修改：统一给所有 contenteditable 元素添加 spellcheck="false"，去掉红色波浪线
+  nodeEl.querySelectorAll('[contenteditable="true"]').forEach(el => {
+    el.setAttribute('spellcheck', 'false');
+  });
 }
 
 function startNodeDrag(e, nodeId) {
