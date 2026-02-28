@@ -1,4 +1,15 @@
 <!DOCTYPE html>
+<!--
+/**
+ * @fileoverview 游戏管理器渲染进程主页面
+ * @description Electron 应用的渲染层 HTML 结构，包含自定义标题栏、侧边栏导航、
+ *              游戏管理界面、设置页面、攻略编辑器弹窗和各类模态框
+ * @module index
+ * @author EternoPax
+ * @since 2026/2/28
+ * @version 1.0.0
+ */
+-->
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -7,67 +18,94 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <!-- 自定义标题栏（无边框窗口拖动区域） -->
+  <!-- 
+    ==================== 自定义标题栏 ====================
+    模拟原生窗口标题栏，支持拖拽移动窗口，包含最小化、最大化/还原、关闭按钮
+    使用符号而非 SVG 图标保持简洁风格
+  -->
   <div class="custom-titlebar">
     <div class="titlebar-drag-area">Game Manager</div>
     <div class="titlebar-controls">
-      <button class="titlebar-btn" onclick="minimizeWindow()">─</button>
-      <button class="titlebar-btn" onclick="maximizeWindow()">□</button>
-      <button class="titlebar-btn close" onclick="closeWindow()">×</button>
+      <button class="titlebar-btn" onclick="minimizeWindow()" title="最小化">─</button>
+      <button class="titlebar-btn" onclick="maximizeWindow()" title="最大化/还原">□</button>
+      <button class="titlebar-btn close" onclick="closeWindow()" title="关闭">×</button>
     </div>
   </div>
 
   <div class="app-container">
-    <!-- 侧边栏导航 -->
+    <!-- 
+      ==================== 侧边栏导航 ====================
+      包含应用 Logo 和两个主要导航项：游戏管理、设置
+      使用外部 SVG 图标（nav-game.svg, nav-settings.svg）
+    -->
     <nav class="sidebar">
       <div class="logo">
         <h1>Game Manager</h1>
       </div>
       <ul class="nav-menu">
         <li class="nav-item active" data-page="games">
-          <span class="nav-icon">🎮</span>
+          <img src="../../assets/icons/nav-game.svg" class="nav-icon" alt="">
           <span class="nav-text">游戏管理</span>
         </li>
         <li class="nav-item" data-page="settings">
-          <span class="nav-icon">⚙️</span>
+          <img src="../../assets/icons/nav-settings.svg" class="nav-icon" alt="">
           <span class="nav-text">设置</span>
         </li>
       </ul>
     </nav>
 
-    <!-- 主内容区 -->
+    <!-- 
+      ==================== 主内容区 ====================
+      包含两个主要页面的内容：游戏库页面和设置页面
+      通过 active 类切换显示
+    -->
     <main class="main-content">
-      <!-- 游戏管理页面 -->
+      <!-- 
+        ==================== 游戏管理页面 ====================
+        包含页面标题、工具栏按钮（MTool、翻译器、添加游戏）、
+        拖放区域和游戏卡片网格展示区
+      -->
       <div id="games-page" class="page active">
         <header class="page-header">
           <h2>游戏库</h2>
           <div class="header-actions">
+            <!-- MTool 启动按钮（仅在配置路径后显示） -->
             <button id="mtool-btn" class="btn btn-secondary" onclick="launchMtool()" style="display: none;">
-              🔧 启动 MTool
+              <img src="../../assets/icons/tool-mtool.svg" class="btn-icon" alt="">
+              启动 MTool
             </button>
+            <!-- 翻译器启动按钮（仅在配置路径后显示） -->
             <button id="translator-btn" class="btn btn-secondary" onclick="launchTranslator()" style="display: none;">
-              📖 启动翻译器
+              <img src="../../assets/icons/tool-translator.svg" class="btn-icon" alt="">
+              启动翻译器
             </button>
             <button id="add-game-btn" class="btn btn-primary">+ 添加游戏</button>
           </div>
         </header>
         
+        <!-- 拖放添加游戏区域 -->
         <div id="drop-zone" class="drop-zone">
           <p>拖拽 exe 或 bat 文件到此处快速添加游戏</p>
         </div>
 
+        <!-- 游戏卡片网格容器，由 JS 动态渲染内容 -->
         <div id="games-grid" class="games-grid">
           <!-- 游戏卡片将动态插入这里 -->
         </div>
       </div>
 
-      <!-- 设置页面 -->
+      <!-- 
+        ==================== 设置页面 ====================
+        包含翻译工具、MTool、转区工具的配置选项
+        以及 Galgame 默认启动方式设置
+      -->
       <div id="settings-page" class="page">
         <header class="page-header">
           <h2>设置</h2>
         </header>
         
         <div class="settings-container">
+          <!-- 翻译工具配置 -->
           <div class="settings-section">
             <h3>翻译工具</h3>
             <div class="setting-item">
@@ -80,6 +118,7 @@
             </div>
           </div>
 
+          <!-- MTool 配置 -->
           <div class="settings-section">
             <h3>MTool 翻译</h3>
             <div class="setting-item">
@@ -92,6 +131,7 @@
             </div>
           </div>
 
+          <!-- 转区工具配置 -->
           <div class="settings-section">
             <h3>转区工具</h3>
             <div class="setting-item">
@@ -112,6 +152,7 @@
             </div>
           </div>
 
+          <!-- 保存按钮 -->
           <div class="settings-actions">
             <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
           </div>
@@ -120,12 +161,17 @@
     </main>
   </div>
 
-  <!-- 添加游戏弹窗 -->
+  <!-- 
+    ==================== 添加/编辑游戏弹窗 ====================
+    模态框，用于添加新游戏或编辑现有游戏信息
+    包含游戏名称、类型、转区选项、程序路径、存档路径等字段
+    关闭按钮使用符号而非 SVG
+  -->
   <div id="add-game-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h3>添加游戏</h3>
-        <button class="modal-close" onclick="closeAddGameModal()">&times;</button>
+        <button class="modal-close" onclick="closeAddGameModal()" title="关闭">&times;</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
@@ -140,7 +186,7 @@
             <option value="unity">Unity</option>
           </select>
         </div>
-        <!-- Galgame 专属配置选项 -->
+        <!-- Galgame 特有选项：转区和自动翻译 -->
         <div id="galgame-options" class="form-group" style="display: block;">
           <div class="checkbox-item">
             <input type="checkbox" id="game-use-locale">
@@ -175,30 +221,46 @@
     </div>
   </div>
 
-  <!-- 攻略编辑器弹窗 -->
+  <!-- 
+    ==================== 攻略编辑器弹窗 ====================
+    节点式攻略流程编辑器，支持创建多种类型节点（一入一出、多入一出、一入多出）
+    支持拖拽连接节点、导入导出攻略文件（.gwalk 格式）
+    使用 SVG 作为画布渲染连接线
+  -->
   <div id="guide-modal" class="modal guide-modal">
     <div class="modal-content guide-modal-content">
       <div class="modal-header">
         <h3>攻略编辑器</h3>
-        <button class="modal-close" onclick="closeGuideModal()">&times;</button>
+        <button class="modal-close" onclick="closeGuideModal()" title="关闭">&times;</button>
       </div>
       <div class="modal-body guide-body">
+        <!-- 工具栏：添加节点、清空、导入导出 -->
         <div class="guide-toolbar">
           <button class="btn btn-secondary" onclick="addGuideNode('single')">+ 一入一出</button>
           <button class="btn btn-secondary" onclick="addGuideNode('multi-in')">+ 多入一出</button>
           <button class="btn btn-secondary" onclick="addGuideNode('multi-out')">+ 一入多出</button>
           <button class="btn btn-danger" onclick="clearGuide()">清空</button>
-          <!-- 导入导出按钮 -->
-          <button class="btn btn-secondary" onclick="exportGuide()">📤 导出攻略</button>
-          <button class="btn btn-secondary" onclick="importGuide()">📥 导入攻略</button>
+          <button class="btn btn-secondary" onclick="exportGuide()">
+            <img src="../../assets/icons/action-export.svg" class="btn-icon" alt="">
+            导出攻略
+          </button>
+          <button class="btn btn-secondary" onclick="importGuide()">
+            <img src="../../assets/icons/action-import.svg" class="btn-icon" alt="">
+            导入攻略
+          </button>
           <span class="toolbar-hint">提示：拖拽连接点创建连线，双击节点编辑文本</span>
         </div>
+        <!-- 节点编辑器画布容器，包含 SVG 层和 DOM 节点层 -->
         <div id="guide-flow-container" class="guide-flow-container"></div>
       </div>
     </div>
   </div>
 
-  <!-- 打包进度模态框 -->
+  <!-- 
+    ==================== 打包进度模态框 ====================
+    显示游戏打包压缩的实时进度，包含进度条和状态文本
+    不可手动关闭，完成后自动消失或由主进程控制
+  -->
   <div id="pack-progress-modal" class="modal">
     <div class="modal-content" style="max-width: 400px;">
       <div class="modal-header">
