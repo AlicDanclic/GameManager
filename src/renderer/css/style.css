@@ -882,8 +882,12 @@ body {
 .guide-svg {
   position: absolute;
   inset: 0;
-  inline-size: 100%;
-  block-size: 100%;
+  /* 删除或注释掉这两行 */
+  /* inline-size: 100%; */
+  /* block-size: 100%; */
+  /* 改为固定尺寸，与 JS 中设置的 3000x3000 一致 */
+  inline-size: 3000px;
+  block-size: 3000px;
   pointer-events: none;
   z-index: var(--z-base);
 }
