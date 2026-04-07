@@ -178,6 +178,14 @@ let tempLine = null;
  */
 let editingGameId = null;
 
+/**
+ * 键盘事件处理器引用（用于清理）
+ * @global
+ * @type {Function|null}
+ * @default null
+ */
+let guideKeyHandler = null;
+
 // ==================== 初始化 ====================
 
 /**
@@ -951,6 +959,12 @@ async function openGuide(gameId) {
  * @since 2026/2/28
  */
 function closeGuideModal() {
+  // 清理键盘事件监听
+  if (guideKeyHandler) {
+    document.removeEventListener('keydown', guideKeyHandler);
+    guideKeyHandler = null;
+  }
+  
   saveGuide();
   document.getElementById('guide-modal').classList.remove('active');
   currentGuideGameId = null;
@@ -976,35 +990,41 @@ async function saveGuide() {
  * 初始化攻略编辑器界面
  * @function initGuideEditor
  * @returns {void}
- * @description 创建 SVG 画布和节点容器，渲染现有节点和连接
+ * @description 创建 SVG 画布和节点容器，渲染现有节点和连接，设置键盘删除支持
  * @author EternoPax
  * @since 2026/2/28
  */
 function initGuideEditor() {
   const container = document.getElementById('guide-flow-container');
   container.innerHTML = '';
-  
+ 
+  const nodesContainer = document.createElement('div');
+  nodesContainer.id = 'nodes-container';
+  nodesContainer.style.cssText = 'position: absolute; top: 0; left: 0; width: 3000px; height: 3000px; z-index: 1;';
+  container.appendChild(nodesContainer);
+
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.id = 'guide-svg';
   svg.className.baseVal = 'guide-svg';
   svg.setAttribute('width', '3000');
   svg.setAttribute('height', '3000');
+  svg.style.cssText = 'position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none;';
   svg.innerHTML = `
     <defs>
-      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-        <polygon points="0 0, 10 3.5, 0 7" fill="#333" />
-      </marker>
+        <marker id="arrowhead" markerWidth="4" markerHeight="3" refX="3" refY="1.5" orient="auto">
+          <polygon points="0 0, 4 1.5, 0 3" fill="#333" />
+        </marker>
     </defs>
     <g id="connections-group"></g>
     <path id="temp-connection" class="temp-connection" style="display: none;"></path>
   `;
   container.appendChild(svg);
-  
-  const nodesContainer = document.createElement('div');
-  nodesContainer.id = 'nodes-container';
-  nodesContainer.style.cssText = 'position: absolute; top: 0; left: 0; width: 3000px; height: 3000px; z-index: 2;';
-  container.appendChild(nodesContainer);
-  
+
+  const nodesEventLayer = document.createElement('div');
+  nodesEventLayer.id = 'nodes-event-layer';
+  nodesEventLayer.style.cssText = 'position: absolute; top: 0; left: 0; width: 3000px; height: 3000px; z-index: 3; pointer-events: none;';
+  container.appendChild(nodesEventLayer);
+
   guideData.nodes.forEach(node => renderGuideNode(node));
   
   requestAnimationFrame(() => {
@@ -1013,11 +1033,54 @@ function initGuideEditor() {
   
   container.addEventListener('mousemove', handleContainerMouseMove);
   container.addEventListener('mouseup', handleContainerMouseUp);
+  
+  // 方案2：添加点击空白处取消选中和键盘删除支持
   container.addEventListener('click', (e) => {
-    if (e.target === container || e.target === svg) {
-      deselectAllNodes();
+    if (e.target === container || e.target === svg || e.target.id === 'connections-group' || e.target.id === 'guide-svg') {
+      // 点击空白处，取消所有选中状态
+      document.querySelectorAll('.connection-path').forEach(p => p.classList.remove('selected'));
+      document.querySelectorAll('.flow-node').forEach(el => el.classList.remove('selected'));
     }
   });
+  
+  // 添加键盘事件监听（Delete/Backspace 删除选中的连接线）
+  guideKeyHandler = (e) => {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      // 如果正在编辑文本，不处理删除
+      if (document.activeElement && (document.activeElement.isContentEditable || 
+          document.activeElement.tagName === 'INPUT' || 
+          document.activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
+      
+      const selectedPaths = document.querySelectorAll('.connection-path.selected');
+      if (selectedPaths.length > 0) {
+        e.preventDefault();
+        // 收集要删除的索引（从大到小排序，避免删除时索引变化）
+        const indicesToRemove = [];
+        selectedPaths.forEach(path => {
+          const allPaths = Array.from(document.querySelectorAll('.connection-path'));
+          const index = allPaths.indexOf(path);
+          if (index !== -1) {
+            indicesToRemove.push(index);
+          }
+        });
+        
+        // 从大到小排序，确保删除正确
+        indicesToRemove.sort((a, b) => b - a);
+        
+        // 删除
+        indicesToRemove.forEach(index => {
+          guideData.connections.splice(index, 1);
+        });
+        
+        renderGuideConnections();
+        saveGuide();
+      }
+    }
+  };
+  
+  document.addEventListener('keydown', guideKeyHandler);
 }
 
 /**
@@ -1073,6 +1136,7 @@ function renderGuideNode(node) {
   nodeEl.className = 'flow-node';
   nodeEl.style.left = node.x + 'px';
   nodeEl.style.top = node.y + 'px';
+  nodeEl.style.pointerEvents = 'auto'; // 节点本身接收事件
   
   const typeLabel = {
     'single': '一入一出',
@@ -1489,7 +1553,7 @@ document.addEventListener('mouseup', (e) => {
  * 渲染所有连接线
  * @function renderGuideConnections
  * @returns {void}
- * @description 根据 guideData.connections 重新绘制 SVG 路径
+ * @description 根据 guideData.connections 重新绘制 SVG 路径，并添加透明点击区域便于删除
  * @author EternoPax
  * @since 2026/2/28
  */
@@ -1521,13 +1585,65 @@ function renderGuideConnections() {
     const x2 = toRect.left - containerRect.left + container.scrollLeft + toRect.width / 2;
     const y2 = toRect.top - containerRect.top + container.scrollTop + toRect.height / 2;
     
+    // 创建可见路径
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('class', 'connection-path');
     path.setAttribute('d', createBezierPath(x1, y1, x2, y2));
     path.setAttribute('marker-end', 'url(#arrowhead)');
-    path.addEventListener('dblclick', () => deleteConnection(index));
+    
+    // 创建透明宽路径（点击区域）- 方案1：扩大点击区域
+    const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    hitPath.setAttribute('class', 'connection-hit-area');
+    hitPath.setAttribute('d', createBezierPath(x1, y1, x2, y2));
+    hitPath.style.fill = 'none';
+    hitPath.style.stroke = 'transparent';
+    hitPath.style.strokeWidth = '15'; // 15px 宽的透明点击区域
+    hitPath.style.cursor = 'pointer';
+    hitPath.style.pointerEvents = 'stroke';
+    
+    // 绑定双击删除事件到透明层
+    hitPath.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (confirm('删除这条连接线？')) {
+        guideData.connections.splice(index, 1);
+        renderGuideConnections();
+        saveGuide();
+      }
+    });
+    
+    // 单击选中事件 - 方案2：单击选中，Delete键删除
+    hitPath.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // 切换选中状态
+      if (path.classList.contains('selected')) {
+        path.classList.remove('selected');
+      } else {
+        // 多选支持：按住 Ctrl/Cmd 可以多选，否则单选
+        if (!e.ctrlKey && !e.metaKey) {
+          document.querySelectorAll('.connection-path').forEach(p => p.classList.remove('selected'));
+        }
+        path.classList.add('selected');
+      }
+    });
+    
+    // 悬停效果：高亮可见路径
+    hitPath.addEventListener('mouseenter', () => {
+      path.style.stroke = '#333';
+      path.style.strokeWidth = '3';
+    });
+    hitPath.addEventListener('mouseleave', () => {
+      if (!path.classList.contains('selected')) {
+        path.style.stroke = '';
+        path.style.strokeWidth = '';
+      } else {
+        path.style.stroke = '#4ecdc4'; // 保持选中颜色
+        path.style.strokeWidth = '3';
+      }
+    });
     
     group.appendChild(path);
+    group.appendChild(hitPath);
   });
 }
 
