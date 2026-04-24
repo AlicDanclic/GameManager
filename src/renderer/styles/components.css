@@ -1,0 +1,446 @@
+/**
+ * 通用 UI 组件样式
+ * 按钮、拖放区、游戏网格/卡片、模态框、表单等
+ */
+
+/* ==================== 按钮系统 ==================== */
+.btn {
+  padding: var(--space-2) var(--space-5);
+  border: none;
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+/* 按钮图标 */
+.btn-icon {
+  inline-size: 20px;
+  block-size: 20px;
+  flex-shrink: 0;
+  object-fit: contain;
+  opacity: 0.8;
+  transition: opacity var(--transition-fast);
+}
+
+.btn:hover .btn-icon {
+  opacity: 1;
+}
+
+/* 主要按钮 */
+.btn-primary {
+  background-color: var(--color-btn-primary);
+  color: var(--color-text-inverse);
+}
+
+.btn-primary:hover {
+  background-color: var(--color-btn-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* 次要按钮 */
+.btn-secondary {
+  background-color: var(--color-btn-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-btn-secondary-hover);
+  transform: translateY(-1px);
+}
+
+/* 危险操作按钮 */
+.btn-danger {
+  background-color: var(--color-btn-danger);
+  color: var(--color-text-inverse);
+}
+
+.btn-danger:hover {
+  background-color: var(--color-btn-danger-hover);
+  transform: translateY(-1px);
+}
+
+/* 小型按钮变体 */
+.btn-small {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+  gap: var(--space-1);
+}
+
+/* ==================== 拖放区域 ==================== */
+.drop-zone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--border-radius-xl);
+  padding: var(--space-10);
+  text-align: center;
+  margin-block-end: var(--space-6);
+  background-color: var(--color-bg-secondary);
+  transition: all var(--transition-base);
+}
+
+.drop-zone.drag-over {
+  border-color: var(--color-btn-primary);
+  background-color: #f0f0f0;
+  transform: scale(1.01);
+}
+
+.drop-zone p {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-base);
+}
+
+/* ==================== 游戏网格布局 ==================== */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+/* ==================== 游戏卡片组件 ==================== */
+.game-card {
+  background-color: var(--color-bg-primary);
+  border-radius: var(--border-radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.game-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* 游戏类型标签头部 */
+.game-type-header {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-inverse);
+}
+
+/* 类型特定颜色 */
+.game-card.galgame .game-type-header {
+  background-color: var(--color-accent-galgame);
+}
+
+.game-card.rpg .game-type-header {
+  background-color: var(--color-accent-rpg);
+}
+
+.game-card.unity .game-type-header {
+  background-color: var(--color-accent-unity);
+}
+
+/* 游戏封面图 */
+.game-image {
+  inline-size: 100%;
+  block-size: 160px;
+  object-fit: cover;
+  cursor: pointer;
+  background-color: var(--color-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-base);
+  overflow: hidden;
+}
+
+.game-image img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-slow);
+}
+
+.game-card:hover .game-image img {
+  transform: scale(1.05);
+}
+
+/* 游戏信息区域 */
+.game-info {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.game-name {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 状态图标（内联 SVG） */
+.game-config-icons {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-block-size: 20px;
+}
+
+.status-icon {
+  inline-size: 14px;
+  block-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.8;
+  color: var(--color-bg-sidebar);
+}
+
+.status-icon svg {
+  inline-size: 100%;
+  block-size: 100%;
+  fill: currentColor;
+}
+
+.icon-locale svg {
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+}
+
+/* 操作按钮组 */
+.game-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+}
+
+.game-actions .btn {
+  flex: 1;
+  min-inline-size: 70px;
+}
+
+.game-actions-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+}
+
+/* ==================== 空状态组件 ==================== */
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: var(--space-16) var(--space-5);
+  color: var(--color-text-tertiary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.empty-state-icon {
+  inline-size: 64px;
+  block-size: 64px;
+  opacity: 0.3;
+  color: currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state-icon svg {
+  inline-size: 100%;
+  block-size: 100%;
+  stroke: currentColor;
+  fill: none;
+}
+
+.empty-state-text {
+  font-size: var(--font-size-base);
+}
+
+/* ==================== 模态框系统 ==================== */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: var(--z-modal);
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.modal.active {
+  display: flex;
+  animation: modalFadeIn var(--transition-base);
+}
+
+.modal-content {
+  background-color: var(--color-bg-primary);
+  border-radius: var(--border-radius-xl);
+  inline-size: 90%;
+  max-inline-size: 500px;
+  max-block-size: 90vh;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  animation: modalSlideUp var(--transition-base);
+}
+
+/* 攻略编辑器专用大模态框 */
+.guide-modal-content {
+  max-inline-size: 90vw;
+  max-block-size: 90vh;
+  inline-size: 90vw;
+  block-size: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-5) var(--space-6);
+  border-block-end: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.modal-header h3 {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* 关闭按钮 - 使用符号 */
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  line-height: 1;
+  inline-size: 32px;
+  block-size: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius-md);
+  transition: all var(--transition-fast);
+}
+
+.modal-close:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-secondary);
+}
+
+.modal-body {
+  padding: var(--space-6);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.guide-body {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-block-start: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+/* ==================== 表单组件 ==================== */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-block-end: var(--space-5);
+}
+
+.form-group label {
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.form-group input,
+.form-group select {
+  inline-size: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-base);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--color-btn-primary);
+  box-shadow: 0 0 0 2px rgba(51, 51, 51, 0.1);
+}
+
+/* 复选框项 */
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.checkbox-item input[type="checkbox"] {
+  inline-size: 16px;
+  block-size: 16px;
+  cursor: pointer;
+  accent-color: var(--color-btn-primary);
+}
+
+.checkbox-item label {
+  font-weight: 500;
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* 输入框组 */
+.input-group {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.input-group input {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-base);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: var(--color-btn-primary);
+  box-shadow: 0 0 0 2px rgba(51, 51, 51, 0.1);
+}

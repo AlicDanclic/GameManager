@@ -186,6 +186,15 @@ let editingGameId = null;
  */
 let guideKeyHandler = null;
 
+// ==================== 画布平移（中键拖拽） ====================
+let isPanning = false;
+let panStartX = 0, panStartY = 0;
+let panStartScrollLeft = 0, panStartScrollTop = 0;
+
+// ==================== 节点高亮相关 ====================
+let currentSelectedNodeId = null;           // 当前选中的节点ID
+let isDraggingForClickFlag = false;         // 防止拖拽后误触发单击选中
+
 // ==================== 初始化 ====================
 
 /**
@@ -1033,6 +1042,52 @@ function initGuideEditor() {
   
   container.addEventListener('mousemove', handleContainerMouseMove);
   container.addEventListener('mouseup', handleContainerMouseUp);
+
+  // ========== 鼠标中键拖动画布 ==========
+  // 移除旧的监听器，避免重复绑定
+  container.removeEventListener('mousedown', onPanMouseDown);
+  container.removeEventListener('mousemove', onPanMouseMove);
+  container.removeEventListener('mouseup', onPanMouseUp);
+
+  function onPanMouseDown(e) {
+    if (e.button === 1) {   // 中键
+      e.preventDefault();
+      isPanning = true;
+      panStartX = e.clientX;
+      panStartY = e.clientY;
+      panStartScrollLeft = container.scrollLeft;
+      panStartScrollTop = container.scrollTop;
+      container.style.cursor = 'grabbing';
+    }
+  }
+
+  function onPanMouseMove(e) {
+    if (!isPanning) return;
+    e.preventDefault();
+    const dx = e.clientX - panStartX;
+    const dy = e.clientY - panStartY;
+    container.scrollLeft = panStartScrollLeft - dx;
+    container.scrollTop = panStartScrollTop - dy;
+  }
+
+  function onPanMouseUp(e) {
+    if (!isPanning) return;
+    isPanning = false;
+    container.style.cursor = '';
+  }
+
+  container.addEventListener('mousedown', onPanMouseDown);
+  container.addEventListener('mousemove', onPanMouseMove);
+  container.addEventListener('mouseup', onPanMouseUp);
+
+  // 页面中统一防止中键默认滚动行为
+  document.addEventListener('mousedown', (e) => {
+    if (e.button === 1) e.preventDefault();
+  });
+
+  // ========== 初始化高亮状态 ==========
+  currentSelectedNodeId = null;
+  updateAllHighlights();
   
   // 方案2：添加点击空白处取消选中和键盘删除支持
   container.addEventListener('click', (e) => {
@@ -1040,6 +1095,8 @@ function initGuideEditor() {
       // 点击空白处，取消所有选中状态
       document.querySelectorAll('.connection-path').forEach(p => p.classList.remove('selected'));
       document.querySelectorAll('.flow-node').forEach(el => el.classList.remove('selected'));
+      // 清除高亮
+      clearGuideNodeSelection();
     }
   });
   
@@ -1076,6 +1133,7 @@ function initGuideEditor() {
         
         renderGuideConnections();
         saveGuide();
+        updateAllHighlights();  // 更新高亮
       }
     }
   };
@@ -1110,6 +1168,7 @@ function addGuideNode(type) {
   guideData.nodes.push(node);
   renderGuideNode(node);
   saveGuide();
+  updateAllHighlights();  // 刷新高亮
 }
 
 /**
@@ -1208,6 +1267,23 @@ function renderGuideNode(node) {
   nodeEl.querySelectorAll('[contenteditable="true"]').forEach(el => {
     el.setAttribute('spellcheck', 'false');
   });
+
+  // 为节点添加单击选中事件（高亮父节点）
+  nodeEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const target = e.target;
+    if (target.isContentEditable ||
+        target.tagName === 'INPUT' ||
+        target.tagName === 'BUTTON' ||
+        target.classList?.contains('port-handle') ||
+        target.classList?.contains('port-add-btn') ||
+        target.classList?.contains('port-remove-btn') ||
+        target.classList?.contains('node-delete-btn')) {
+      return;
+    }
+    if (isDraggingForClickFlag) return;
+    selectGuideNode(node.id);
+  });
 }
 
 /**
@@ -1222,6 +1298,9 @@ function renderGuideNode(node) {
  */
 function startNodeDrag(e, nodeId) {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.isContentEditable) return;
+  
+  // 设置拖拽标志，防止拖拽后误触发单击选中
+  isDraggingForClickFlag = true;
   
   e.preventDefault();
   e.stopPropagation();
@@ -1284,7 +1363,10 @@ function handleContainerMouseUp(e) {
     isDraggingNode = false;
     selectedNode = null;
     saveGuide();
+    updateAllHighlights(); // 拖拽结束后重新高亮
   }
+  // 延迟重置拖拽标志，避免拖拽结束瞬间的 click 事件触发选中
+  setTimeout(() => { isDraggingForClickFlag = false; }, 10);
 }
 
 /**
@@ -1366,6 +1448,7 @@ function addPort(nodeId, portType) {
   renderGuideNode(node);
   renderGuideConnections();
   saveGuide();
+  updateAllHighlights();
 }
 
 /**
@@ -1409,6 +1492,7 @@ function removePort(nodeId, portType, index) {
   renderGuideNode(node);
   renderGuideConnections();
   saveGuide();
+  updateAllHighlights();
 }
 
 /**
@@ -1433,6 +1517,7 @@ function deleteGuideNode(nodeId) {
   
   renderGuideConnections();
   saveGuide();
+  updateAllHighlights();
 }
 
 // ==================== 连接线系统 ====================
@@ -1538,6 +1623,7 @@ document.addEventListener('mouseup', (e) => {
           guideData.connections.push(connection);
           renderGuideConnections();
           saveGuide();
+          updateAllHighlights(); // 刷新高亮
         }
       }
     }
@@ -1609,6 +1695,7 @@ function renderGuideConnections() {
         guideData.connections.splice(index, 1);
         renderGuideConnections();
         saveGuide();
+        updateAllHighlights();
       }
     });
     
@@ -1645,6 +1732,9 @@ function renderGuideConnections() {
     group.appendChild(path);
     group.appendChild(hitPath);
   });
+  
+  // 连线渲染完成后，重新应用高亮
+  updateAllHighlights();
 }
 
 /**
@@ -1660,6 +1750,7 @@ function deleteConnection(index) {
   guideData.connections.splice(index, 1);
   renderGuideConnections();
   saveGuide();
+  updateAllHighlights();
 }
 
 /**
@@ -1681,6 +1772,7 @@ function clearGuide() {
   
   renderGuideConnections();
   saveGuide();
+  updateAllHighlights();
 }
 
 // ==================== 导入导出攻略 ====================
@@ -1750,6 +1842,7 @@ window.importGuide = async function() {
     guideData = importedData;
     initGuideEditor();
     await saveGuide();
+    updateAllHighlights();
     alert('攻略导入成功');
   } catch (error) {
     alert('导入失败：' + error.message);
@@ -1830,6 +1923,95 @@ function handlePaste(e) {
   e.preventDefault();
   const text = (e.clipboardData || window.clipboardData).getData('text/plain');
   document.execCommand('insertText', false, text);
+}
+
+// ==================== 节点及上游高亮功能 ====================
+
+/**
+ * 选中指定节点，高亮所有上游节点和连线
+ * @param {string} nodeId
+ */
+function selectGuideNode(nodeId) {
+  if (currentSelectedNodeId === nodeId) return;
+  currentSelectedNodeId = nodeId;
+  updateAllHighlights();
+}
+
+/**
+ * 清除所有高亮并基于当前选中的节点重新高亮
+ */
+function updateAllHighlights() {
+  // 1. 清除所有节点的高亮类
+  document.querySelectorAll('.flow-node').forEach(nodeEl => {
+    nodeEl.classList.remove('highlight-parent');
+  });
+  // 2. 清除所有连线的高亮类
+  document.querySelectorAll('.connection-path').forEach(path => {
+    path.classList.remove('highlight');
+  });
+
+  if (!currentSelectedNodeId) return;
+
+  // 3. 获取上游节点集合（包括自己）
+  const upstreamSet = getUpstreamNodesSet(currentSelectedNodeId);
+  
+  // 4. 高亮节点（自己用原有的 selected 类，父节点用 highlight-parent）
+  document.querySelectorAll('.flow-node').forEach(nodeEl => {
+    const id = nodeEl.id;
+    if (id === currentSelectedNodeId) {
+      nodeEl.classList.add('selected');
+    } else if (upstreamSet.has(id)) {
+      nodeEl.classList.add('highlight-parent');
+    }
+  });
+
+  // 5. 高亮连线：起点和终点都在 upstreamSet 内
+  const allPaths = document.querySelectorAll('.connection-path');
+  guideData.connections.forEach((conn, idx) => {
+    if (upstreamSet.has(conn.fromNode) && upstreamSet.has(conn.toNode)) {
+      if (allPaths[idx]) allPaths[idx].classList.add('highlight');
+    }
+  });
+}
+
+/**
+ * 获取某个节点的所有上游节点（包括自身），基于当前 guideData.connections
+ * @param {string} nodeId
+ * @returns {Set<string>}
+ */
+function getUpstreamNodesSet(nodeId) {
+  // 构建反向邻接表：toNode -> [fromNode, ...]
+  const reverseAdj = new Map();
+  for (const conn of guideData.connections) {
+    if (!reverseAdj.has(conn.toNode)) reverseAdj.set(conn.toNode, []);
+    reverseAdj.get(conn.toNode).push(conn.fromNode);
+  }
+
+  const visited = new Set();
+  const queue = [nodeId];
+  visited.add(nodeId);
+
+  while (queue.length) {
+    const current = queue.shift();
+    const parents = reverseAdj.get(current) || [];
+    for (const parent of parents) {
+      if (!visited.has(parent)) {
+        visited.add(parent);
+        queue.push(parent);
+      }
+    }
+  }
+  return visited;
+}
+
+/**
+ * 清除节点选中和高亮（点击空白时调用）
+ */
+function clearGuideNodeSelection() {
+  if (currentSelectedNodeId) {
+    currentSelectedNodeId = null;
+    updateAllHighlights();
+  }
 }
 
 // ==================== 全局函数暴露 ====================
