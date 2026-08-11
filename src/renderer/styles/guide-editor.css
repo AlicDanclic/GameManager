@@ -319,3 +319,61 @@
   order: 1;
   margin-inline-end: var(--space-1);
 }
+
+/* ==================== 节点翻转功能 ==================== */
+
+/* 节点翻转按钮 - 位于头部删除按钮左侧 */
+.node-flip-btn {
+  background: none;
+  border: none;
+  color: #9fd8d3;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 var(--space-1);
+  flex-shrink: 0;
+  inline-size: 24px;
+  block-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.node-flip-btn:hover {
+  color: #4ecdc4;
+  background-color: rgba(78, 205, 196, 0.2);
+}
+
+/* 已翻转状态高亮提示 */
+.node-flip-btn.active {
+  color: #4ecdc4;
+  background-color: rgba(78, 205, 196, 0.25);
+}
+
+/* 翻转后的输入行：整体在节点右侧，顺序为 文本 -> 按钮 -> 端口，端口对齐右边缘 */
+.input-row.flipped {
+  justify-content: flex-start;
+}
+
+.input-row.flipped .port-handle {
+  margin-inline-start: auto;
+  margin-inline-end: 0;
+}
+
+/* 翻转后的输出行：整体在节点左侧，顺序为 端口 -> 文本 -> 按钮，端口对齐左边缘 */
+.output-row.flipped .port-handle {
+  order: 0;
+  margin-inline-start: 0;
+  margin-inline-end: var(--space-1);
+}
+
+.output-row.flipped .port-label-input {
+  order: 1;
+}
+
+.output-row.flipped :is(.port-add-btn, .port-remove-btn) {
+  order: 2;
+  margin-inline-end: 0;
+}

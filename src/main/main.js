@@ -150,7 +150,7 @@ function createWindow() {
       contextIsolation: false,
       enableRemoteModule: true,
       webSecurity: false,
-      devTools: false
+      devTools: true
     },
     show: false
   });

@@ -1162,7 +1162,8 @@ function addGuideNode(type) {
     x: container.scrollLeft + rect.width / 2 - 80,
     y: container.scrollTop + rect.height / 2 - 50,
     inputs: type === 'single' ? ['入口'] : (type === 'multi-in' ? ['入口1', '入口2'] : ['入口']),
-    outputs: type === 'single' ? ['出口'] : (type === 'multi-in' ? ['出口'] : ['出口1', '出口2'])
+    outputs: type === 'single' ? ['出口'] : (type === 'multi-in' ? ['出口'] : ['出口1', '出口2']),
+    flip : false
   };
   
   guideData.nodes.push(node);
@@ -1203,44 +1204,68 @@ function renderGuideNode(node) {
     'multi-out': '一入多出'
   }[node.type];
   
-  const inputsHtml = node.inputs.map((input, i) => `
-    <div class="port-row input-row" data-node="${node.id}">
-      <div class="port-handle input" 
+  // 翻转状态：翻转后输出列在左（左边出）、输入列在右（右边进）
+  const flipped = !!node.flip;
+
+  const inputsHtml = node.inputs.map((input, i) => {
+    const handleHtml = `
+      <div class="port-handle input"
            data-node="${node.id}" data-port="${i}" data-type="input"
-           onmousedown="startConnection(event, '${node.id}', ${i}, 'input')"></div>
+           onmousedown="startConnection(event, '${node.id}', ${i}, 'input')"></div>`;
+    const labelHtml = `
       <div contenteditable="true" class="port-label-input"
            onblur="updatePortLabel('${node.id}', 'input', ${i}, this.textContent)"
            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
            onpaste="handlePaste(event)"
-           onclick="event.stopPropagation()">${input}</div>
+           onclick="event.stopPropagation()">${input}</div>`;
+    const btnsHtml = `
       ${node.type !== 'single' && i === node.inputs.length - 1 ? `
         <button class="port-add-btn" onclick="addPort('${node.id}', 'input')">+</button>
       ` : ''}
       ${node.inputs.length > 1 ? `
         <button class="port-remove-btn" onclick="removePort('${node.id}', 'input', ${i})">-</button>
-      ` : ''}
+      ` : ''}`;
+    return `
+    <div class="port-row input-row${flipped ? ' flipped' : ''}" data-node="${node.id}">
+      ${flipped ? labelHtml + btnsHtml + handleHtml : handleHtml + labelHtml + btnsHtml}
     </div>
-  `).join('');
-  
-  const outputsHtml = node.outputs.map((output, i) => `
-    <div class="port-row output-row" data-node="${node.id}">
+  `;
+  }).join('');
+
+  const outputsHtml = node.outputs.map((output, i) => {
+    const handleHtml = `
+      <div class="port-handle output"
+           data-node="${node.id}" data-port="${i}" data-type="output"
+           onmousedown="startConnection(event, '${node.id}', ${i}, 'output')"></div>`;
+    const labelHtml = `
       <div contenteditable="true" class="port-label-input"
            onblur="updatePortLabel('${node.id}', 'output', ${i}, this.textContent)"
            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
            onpaste="handlePaste(event)"
-           onclick="event.stopPropagation()">${output}</div>
+           onclick="event.stopPropagation()">${output}</div>`;
+    const btnsHtml = `
       ${node.type !== 'single' && i === node.outputs.length - 1 ? `
         <button class="port-add-btn" onclick="addPort('${node.id}', 'output')">+</button>
       ` : ''}
       ${node.outputs.length > 1 ? `
         <button class="port-remove-btn" onclick="removePort('${node.id}', 'output', ${i})">-</button>
-      ` : ''}
-      <div class="port-handle output" 
-           data-node="${node.id}" data-port="${i}" data-type="output"
-           onmousedown="startConnection(event, '${node.id}', ${i}, 'output')"></div>
+      ` : ''}`;
+    return `
+    <div class="port-row output-row${flipped ? ' flipped' : ''}" data-node="${node.id}">
+      ${flipped ? handleHtml + labelHtml + btnsHtml : labelHtml + btnsHtml + handleHtml}
     </div>
-  `).join('');
-  
+  `;
+  }).join('');
+
+  const inputsBlock = `
+      <div class="node-inputs">
+        ${inputsHtml}
+      </div>`;
+  const outputsBlock = `
+      <div class="node-outputs">
+        ${outputsHtml}
+      </div>`;
+
   // 删除按钮保持为 &times; 符号（不改成 SVG）
   nodeEl.innerHTML = `
     <div class="node-header" onmousedown="startNodeDrag(event, '${node.id}')">
@@ -1250,15 +1275,11 @@ function renderGuideNode(node) {
            onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
            onpaste="handlePaste(event)"
            onclick="event.stopPropagation()">${node.title}</div>
+      <button class="node-flip-btn${flipped ? ' active' : ''}" onclick="flipGuideNode('${node.id}')" title="翻转节点（调换进/出方向）">⇄</button>
       <button class="node-delete-btn" onclick="deleteGuideNode('${node.id}')" title="删除节点">&times;</button>
     </div>
-    <div class="node-ports-container">
-      <div class="node-inputs">
-        ${inputsHtml}
-      </div>
-      <div class="node-outputs">
-        ${outputsHtml}
-      </div>
+    <div class="node-ports-container${flipped ? ' flipped' : ''}">
+      ${flipped ? outputsBlock + inputsBlock : inputsBlock + outputsBlock}
     </div>
   `;
   
@@ -1520,6 +1541,32 @@ function deleteGuideNode(nodeId) {
   updateAllHighlights();
 }
 
+/**
+ * 翻转攻略节点
+ * @global
+ * @function flipGuideNode
+ * @param {string} nodeId - 要翻转的节点 ID
+ * @returns {void}
+ * @description 切换节点的 flip 状态：未翻转时左进右出（输入端口在左、输出端口在右），
+ *              翻转后右进左出（输出端口在左、输入端口在右）。
+ *              仅改变显示方向和连线走向，不改变节点数据与连接关系。
+ * @author EternoPax
+ * @since 2026/2/28
+ */
+function flipGuideNode(nodeId) {
+  const node = guideData.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  node.flip = !node.flip;
+
+  const nodeEl = document.getElementById(nodeId);
+  if (nodeEl) nodeEl.remove();
+  renderGuideNode(node);
+  renderGuideConnections();
+  saveGuide();
+  updateAllHighlights();
+}
+
 // ==================== 连接线系统 ====================
 
 /**
@@ -1574,9 +1621,13 @@ function updateTempConnection(e) {
   const y1 = fromRect.top - containerRect.top + container.scrollTop + fromRect.height / 2;
   const x2 = e.clientX - containerRect.left + container.scrollLeft;
   const y2 = e.clientY - containerRect.top + container.scrollTop;
-  
+
+  // 起点节点翻转时，临时线从左侧出线，并以相同方向延伸到鼠标位置
+  const fromNodeData = guideData.nodes.find(n => n.id === connectionStart.nodeId);
+  const fromFlip = !!(fromNodeData && fromNodeData.flip);
+
   const tempPath = document.getElementById('temp-connection');
-  tempPath.setAttribute('d', createBezierPath(x1, y1, x2, y2));
+  tempPath.setAttribute('d', createBezierPath(x1, y1, x2, y2, fromFlip, fromFlip));
 }
 
 /**
@@ -1590,9 +1641,13 @@ function updateTempConnection(e) {
  * @author EternoPax
  * @since 2026/2/28
  */
-function createBezierPath(x1, y1, x2, y2) {
-  const dx = Math.abs(x2 - x1) * 0.5;
-  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+function createBezierPath(x1, y1, x2, y2, fromFlip = false, toFlip = false) {
+  const dx = Math.max(Math.abs(x2 - x1) * 0.5, 30);
+  // 起点为输出端口：未翻转朝右出线（控制点在 x1 右侧），翻转后朝左出线（控制点在 x1 左侧）
+  const c1x = fromFlip ? x1 - dx : x1 + dx;
+  // 终点为输入端口：未翻转从左侧进线（控制点在 x2 左侧），翻转后从右侧进线（控制点在 x2 右侧）
+  const c2x = toFlip ? x2 + dx : x2 - dx;
+  return `M ${x1} ${y1} C ${c1x} ${y1}, ${c2x} ${y2}, ${x2} ${y2}`;
 }
 
 // 全局鼠标释放事件监听（用于完成连线）
@@ -1670,17 +1725,23 @@ function renderGuideConnections() {
     const y1 = fromRect.top - containerRect.top + container.scrollTop + fromRect.height / 2;
     const x2 = toRect.left - containerRect.left + container.scrollLeft + toRect.width / 2;
     const y2 = toRect.top - containerRect.top + container.scrollTop + toRect.height / 2;
-    
+
+    // 根据两端节点的翻转状态确定出线/进线方向（翻转后右进左出）
+    const fromNodeData = guideData.nodes.find(n => n.id === conn.fromNode);
+    const toNodeData = guideData.nodes.find(n => n.id === conn.toNode);
+    const fromFlip = !!(fromNodeData && fromNodeData.flip);
+    const toFlip = !!(toNodeData && toNodeData.flip);
+
     // 创建可见路径
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('class', 'connection-path');
-    path.setAttribute('d', createBezierPath(x1, y1, x2, y2));
+    path.setAttribute('d', createBezierPath(x1, y1, x2, y2, fromFlip, toFlip));
     path.setAttribute('marker-end', 'url(#arrowhead)');
-    
+
     // 创建透明宽路径（点击区域）- 方案1：扩大点击区域
     const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     hitPath.setAttribute('class', 'connection-hit-area');
-    hitPath.setAttribute('d', createBezierPath(x1, y1, x2, y2));
+    hitPath.setAttribute('d', createBezierPath(x1, y1, x2, y2, fromFlip, toFlip));
     hitPath.style.fill = 'none';
     hitPath.style.stroke = 'transparent';
     hitPath.style.strokeWidth = '15'; // 15px 宽的透明点击区域
@@ -2045,6 +2106,7 @@ window.updatePortLabel = updatePortLabel;
 window.updateNodeTitle = updateNodeTitle;
 window.startConnection = startConnection;
 window.startNodeDrag = startNodeDrag;
+window.flipGuideNode = flipGuideNode;
 
 // 游戏管理
 window.closeAddGameModal = closeAddGameModal;
