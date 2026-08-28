@@ -1,0 +1,95 @@
+/**
+ * CSS 变量与设计令牌
+ * 颜色系统、阴影、尺寸、字体、过渡、z-index 等全局令牌
+ * @author EternoPax
+ * @since 2026/8/28
+ */
+
+:root {
+  /* 颜色系统 - 使用 OKLCH 色彩空间确保 perceptual uniformity */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f5f5f5;
+  --color-bg-tertiary: #fafafa;
+  --color-bg-sidebar: #1a1a1a;
+  --color-bg-sidebar-hover: #2a2a2a;
+  --color-bg-sidebar-active: #333333;
+  
+  /* 文本颜色 */
+  --color-text-primary: #333333;
+  --color-text-secondary: #666666;
+  --color-text-tertiary: #999999;
+  --color-text-inverse: #ffffff;
+  
+  /* 边框与分隔线 */
+  --color-border: #e0e0e0;
+  --color-border-light: rgba(0, 0, 0, 0.1);
+  
+  /* 游戏类型强调色 */
+  --color-accent-galgame: #ff6b6b;
+  --color-accent-rpg: #4ecdc4;
+  --color-accent-unity: #96ceb4;
+  
+  /* 按钮色彩系统 */
+  --color-btn-primary: #333333;
+  --color-btn-primary-hover: #000000;
+  --color-btn-secondary: #f0f0f0;
+  --color-btn-secondary-hover: #e0e0e0;
+  --color-btn-danger: #ff4444;
+  --color-btn-danger-hover: #cc0000;
+  --color-btn-close-hover: #e81123;
+  
+  /* 端口连接点颜色 */
+  --color-port-input: #4ecdc4;
+  --color-port-output: #ff6b6b;
+  --color-port-default: #666666;
+  
+  /* 阴影系统 - 使用 CSS 变量便于主题切换 */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.2);
+  --shadow-focus: 0 0 0 3px rgba(78, 205, 196, 0.3);
+  
+  /* 尺寸系统 - 8px 基准网格 */
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-10: 2.5rem;  /* 40px */
+  --space-12: 3rem;    /* 48px */
+  --space-16: 4rem;    /* 64px */
+  
+  /* 布局尺寸 */
+  --titlebar-height: 32px;
+  --sidebar-width: 220px;
+  --border-radius-sm: 4px;
+  --border-radius-md: 6px;
+  --border-radius-lg: 8px;
+  --border-radius-xl: 12px;
+  
+  /* 字体系统 */
+  --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 
+                       'Helvetica Neue', Arial, 'Noto Sans SC', sans-serif;
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.8125rem;  /* 13px */
+  --font-size-base: 0.875rem; /* 14px */
+  --font-size-lg: 1rem;       /* 16px */
+  --font-size-xl: 1.125rem;   /* 18px */
+  --font-size-2xl: 1.25rem;   /* 20px */
+  --font-size-3xl: 1.5rem;    /* 24px */
+  
+  /* 过渡动画 */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+  
+  /* Z-Index 层级系统 */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-modal: 1000;
+  --z-titlebar: 1001;
+  --z-context-menu: 10000;
+}

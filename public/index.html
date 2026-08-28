@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<!--
+/**
+ * @fileoverview 游戏管理器渲染进程主页面
+ * @description Electron 应用的渲染层 HTML 结构，包含自定义标题栏、侧边栏导航、
+ *              游戏管理界面、设置页面、攻略编辑器弹窗和各类模态框
+ * @module index
+ * @author EternoPax
+ * @since 2026/2/28
+ * @since 2026/8/28 补充全量中文注释
+ * @version 1.0.0
+ */
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 内容安全策略：file:// 页面需显式放行 file: 协议；内联事件处理器需要 'unsafe-inline' -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; img-src 'self' file: data:; style-src 'self' file: 'unsafe-inline'; script-src 'self' file: 'unsafe-inline'; connect-src 'none'">
+  <title>Game Manager</title>
+  <link rel="stylesheet" href="../src/styles/main.css">
+</head>
+<body>
+  <!-- 
+    ==================== 自定义标题栏 ====================
+    模拟原生窗口标题栏，支持拖拽移动窗口，包含最小化、最大化/还原、关闭按钮
+    使用符号而非 SVG 图标保持简洁风格
+  -->
+  <div class="custom-titlebar">
+    <div class="titlebar-drag-area">Game Manager</div>
+    <div class="titlebar-controls">
+      <button class="titlebar-btn" onclick="minimizeWindow()" title="最小化">─</button>
+      <button class="titlebar-btn" onclick="maximizeWindow()" title="最大化/还原">□</button>
+      <button class="titlebar-btn close" onclick="closeWindow()" title="关闭">×</button>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <!-- 
+      ==================== 侧边栏导航 ====================
+      包含应用 Logo 和两个主要导航项：游戏管理、设置
+      使用外部 SVG 图标（nav-game.svg, nav-settings.svg）
+    -->
+    <nav class="sidebar">
+      <div class="logo">
+        <h1>Game Manager</h1>
+      </div>
+      <ul class="nav-menu">
+        <li class="nav-item active" data-page="games">
+          <img src="icons/nav-game.svg" class="nav-icon" alt="">
+          <span class="nav-text">游戏管理</span>
+        </li>
+        <li class="nav-item" data-page="settings">
+          <img src="icons/nav-settings.svg" class="nav-icon" alt="">
+          <span class="nav-text">设置</span>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- 
+      ==================== 主内容区 ====================
+      包含两个主要页面的内容：游戏库页面和设置页面
+      通过 active 类切换显示
+    -->
+    <main class="main-content">
+      <!-- 
+        ==================== 游戏管理页面 ====================
+        包含页面标题、工具栏按钮（MTool、翻译器、添加游戏）、
+        拖放区域和游戏卡片网格展示区
+      -->
+      <div id="games-page" class="page active">
+        <header class="page-header">
+          <h2>游戏库</h2>
+          <div class="header-actions">
+            <!-- 搜索：默认收起为放大镜图标（放在 MTool 按钮左侧），鼠标悬停整个搜索区时展开搜索框与类型筛选 -->
+            <div class="search-collapse" id="search-collapse">
+              <button type="button" class="search-trigger" id="search-trigger" title="搜索游戏" aria-label="搜索游戏">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+              </button>
+              <div class="search-expand">
+                <div class="game-search">
+                  <input type="text" id="game-search-input" class="game-search-input" placeholder="搜索游戏..." autocomplete="off" spellcheck="false" list="search-history-list">
+                  <button type="button" id="game-search-clear" class="game-search-clear" title="清空搜索" style="display: none;">×</button>
+                  <datalist id="search-history-list"></datalist>
+                </div>
+                <select id="game-type-filter" class="game-type-filter" title="按类型筛选">
+                  <option value="all">全部</option>
+                  <option value="galgame">Galgame</option>
+                  <option value="rpg">RPG</option>
+                  <option value="unity">Unity</option>
+                </select>
+              </div>
+            </div>
+            <!-- MTool 启动按钮（仅在配置路径后显示）；搜索展开时动画收缩为纯图标 -->
+            <button id="mtool-btn" class="btn btn-secondary tool-btn" onclick="launchMtool()" style="display: none;">
+              <img src="icons/tool-mtool.svg" class="btn-icon" alt="">
+              <span class="btn-text">启动 MTool</span>
+            </button>
+            <!-- 翻译器启动按钮（仅在配置路径后显示）；搜索展开时动画收缩为纯图标 -->
+            <button id="translator-btn" class="btn btn-secondary tool-btn" onclick="launchTranslator()" style="display: none;">
+              <img src="icons/tool-translator.svg" class="btn-icon" alt="">
+              <span class="btn-text">启动翻译器</span>
+            </button>
+            <button id="add-game-btn" class="btn btn-primary">+ 添加游戏</button>
+          </div>
+        </header>
+        
+        <!-- 拖放添加游戏区域 -->
+        <div id="drop-zone" class="drop-zone">
+          <p>拖拽 exe 或 bat 文件到此处快速添加游戏</p>
+        </div>
+
+        <!-- 游戏卡片网格容器，由 JS 动态渲染内容 -->
+        <div id="games-grid" class="games-grid">
+          <!-- 游戏卡片将动态插入这里 -->
+        </div>
+      </div>
+
+      <!-- 
+        ==================== 设置页面 ====================
+        包含翻译工具、MTool、转区工具的配置选项
+        以及 Galgame 默认启动方式设置
+      -->
+      <div id="settings-page" class="page">
+        <header class="page-header">
+          <h2>设置</h2>
+        </header>
+        
+        <div class="settings-container">
+          <!-- 翻译工具配置 -->
+          <div class="settings-section">
+            <h3>翻译工具</h3>
+            <div class="setting-item">
+              <label>翻译工具路径</label>
+              <div class="input-group">
+                <input type="text" id="translator-tool-path" readonly placeholder="选择翻译工具 exe 文件">
+                <button class="btn btn-secondary" onclick="selectTranslatorTool()">浏览</button>
+              </div>
+              <p class="setting-desc">用于 Galgame 的翻译工具，启动游戏前可选择先打开</p>
+            </div>
+          </div>
+
+          <!-- MTool 配置 -->
+          <div class="settings-section">
+            <h3>MTool 翻译</h3>
+            <div class="setting-item">
+              <label>MTool 路径</label>
+              <div class="input-group">
+                <input type="text" id="mtool-path" readonly placeholder="选择 MTool 启动文件">
+                <button class="btn btn-secondary" onclick="selectMtoolPath()">浏览</button>
+              </div>
+              <p class="setting-desc">支持 exe 或 bat 文件，主界面可一键启动</p>
+            </div>
+          </div>
+
+          <!-- 转区工具配置 -->
+          <div class="settings-section">
+            <h3>转区工具</h3>
+            <div class="setting-item">
+              <label>Locale Emulator 路径</label>
+              <div class="input-group">
+                <input type="text" id="locale-emulator-path" readonly placeholder="选择 Locale Emulator">
+                <button class="btn btn-secondary" onclick="selectLocaleEmulator()">浏览</button>
+              </div>
+              <p class="setting-desc">用于 Galgame 的转区启动</p>
+            </div>
+            <div class="setting-item">
+              <label>默认启动方式</label>
+              <select id="default-gal-mode">
+                <option value="noLocale">不转区启动</option>
+                <option value="locale">转区启动</option>
+              </select>
+              <p class="setting-desc">Galgame 的默认启动方式</p>
+            </div>
+          </div>
+
+          <!-- 保存按钮 -->
+          <div class="settings-actions">
+            <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 
+    ==================== 添加/编辑游戏弹窗 ====================
+    模态框，用于添加新游戏或编辑现有游戏信息
+    包含游戏名称、类型、转区选项、程序路径、存档路径等字段
+    关闭按钮使用符号而非 SVG
+  -->
+  <div id="add-game-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>添加游戏</h3>
+        <button class="modal-close" onclick="closeAddGameModal()" title="关闭">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>游戏名称</label>
+          <input type="text" id="game-name" placeholder="输入游戏名称">
+        </div>
+        <div class="form-group">
+          <label>游戏类型</label>
+          <select id="game-type">
+            <option value="galgame">Galgame</option>
+            <option value="rpg">RPG</option>
+            <option value="unity">Unity</option>
+          </select>
+        </div>
+        <!-- Galgame 特有选项：转区和自动翻译 -->
+        <div id="galgame-options" class="form-group" style="display: block;">
+          <div class="checkbox-item">
+            <input type="checkbox" id="game-use-locale">
+            <label for="game-use-locale">使用转区启动</label>
+            <span class="setting-desc" style="display: inline; margin-left: 8px;">（若未配置转区工具，此项无效）</span>
+          </div>
+          <div class="checkbox-item" style="margin-top: 8px;">
+            <input type="checkbox" id="game-auto-translate">
+            <label for="game-auto-translate">自动启动翻译工具</label>
+            <span class="setting-desc" style="display: inline; margin-left: 8px;">（需先配置翻译工具路径）</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>程序文件</label>
+          <div class="input-group">
+            <input type="text" id="game-exe-path" readonly placeholder="选择 exe 或 bat 文件">
+            <button class="btn btn-secondary" onclick="selectGameExe()">浏览</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>存档文件夹</label>
+          <div class="input-group">
+            <input type="text" id="game-save-path" readonly placeholder="选择存档文件夹">
+            <button class="btn btn-secondary" onclick="selectSaveFolder()">浏览</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeAddGameModal()">取消</button>
+        <button class="btn btn-primary" onclick="confirmAddGame()">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 
+    ==================== 攻略编辑器弹窗 ====================
+    节点式攻略流程编辑器，支持创建多种类型节点（一入一出、多入一出、一入多出）
+    支持拖拽连接节点、导入导出攻略文件（.gwalk 格式）
+    使用 SVG 作为画布渲染连接线
+  -->
+  <div id="guide-modal" class="modal guide-modal">
+    <div class="modal-content guide-modal-content">
+      <div class="modal-header">
+        <h3>攻略编辑器</h3>
+        <button class="modal-close" onclick="closeGuideModal()" title="关闭">&times;</button>
+      </div>
+      <div class="modal-body guide-body">
+        <!-- 工具栏：添加节点、清空、导入导出 -->
+        <div class="guide-toolbar">
+          <button class="btn btn-secondary" id="guide-undo-btn" onclick="window.guideUndo()" disabled title="撤销 (Ctrl+Z)">↶ 撤销</button>
+          <button class="btn btn-secondary" id="guide-redo-btn" onclick="window.guideRedo()" disabled title="重做 (Ctrl+Shift+Z)">↷ 重做</button>
+          <span aria-hidden="true" style="border-left:1px solid var(--color-border);align-self:stretch;margin-inline:2px;"></span>
+          <button class="btn btn-secondary" onclick="addGuideNode('single')">+ 一入一出</button>
+          <button class="btn btn-secondary" onclick="addGuideNode('multi-in')">+ 多入一出</button>
+          <button class="btn btn-secondary" onclick="addGuideNode('multi-out')">+ 一入多出</button>
+          <button class="btn btn-danger" data-arm="clearGuide" data-ready-label="松开确认清空">清空</button>
+          <button class="btn btn-secondary" onclick="exportGuide()">
+            <img src="icons/action-export.svg" class="btn-icon" alt="">
+            导出攻略
+          </button>
+          <button class="btn btn-secondary" onclick="importGuide()">
+            <img src="icons/action-import.svg" class="btn-icon" alt="">
+            导入攻略
+          </button>
+          <span class="toolbar-hint">提示：拖拽连接点创建连线，双击节点编辑文本</span>
+        </div>
+        <!-- 节点编辑器画布容器，包含 SVG 层和 DOM 节点层 -->
+        <div id="guide-flow-container" class="guide-flow-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 
+    ==================== 打包进度模态框 ====================
+    显示游戏打包压缩的实时进度，包含进度条和状态文本
+    不可手动关闭，完成后自动消失或由主进程控制
+  -->
+  <div id="pack-progress-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3>打包中...</h3>
+      </div>
+      <div class="modal-body">
+        <div style="margin: 20px 0;">
+          <div id="pack-progress-bar" style="height: 20px; background-color: #f0f0f0; border-radius: 10px; overflow: hidden;">
+            <div id="pack-progress-fill" style="width: 0%; height: 100%; background-color: #333; transition: width 0.3s;"></div>
+          </div>
+          <p id="pack-progress-status" style="text-align: center; margin-top: 10px;">准备中...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 渲染进程脚本（按依赖顺序加载，普通全局脚本，无 CommonJS/ESM） -->
+  <script src="../src/js/state.js"></script>
+  <script src="../src/js/toast.js"></script>
+  <script src="../src/js/icons.js"></script>
+  <script src="../src/js/window-control.js"></script>
+  <script src="../src/js/navigation.js"></script>
+  <script src="../src/js/settings.js"></script>
+  <script src="../src/js/arm-confirm.js"></script>
+  <script src="../src/js/game-core.js"></script>
+  <script src="../src/js/game-modal.js"></script>
+  <script src="../src/js/game-drop.js"></script>
+  <script src="../src/js/recent-games.js"></script>
+  <script src="../src/js/guide-history.js"></script>
+  <script src="../src/js/guide-editor.js"></script>
+  <script src="../src/js/pack-delete.js"></script>
+  <script src="../src/js/main.js"></script>
+  
+</body>
+</html>

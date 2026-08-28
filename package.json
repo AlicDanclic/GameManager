@@ -1,16 +1,17 @@
 {
   "name": "game-manager",
-  "version": "0.2.3",
+  "version": "0.5.0",
   "description": "游戏管理软件 - 管理Galgame、RPG和Unity游戏",
-  "main": "src/main/main.js",
+  "main": "main/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
-    "pack": "electron-builder --dir",
+    "check": "node scripts/check-env.js",
+    "build": "electron-builder --config build/electron-builder.yml",
+    "build:win": "electron-builder --config build/electron-builder.yml --win",
+    "build:mac": "electron-builder --config build/electron-builder.yml --mac",
+    "build:linux": "electron-builder --config build/electron-builder.yml --linux",
+    "pack": "electron-builder --config build/electron-builder.yml --dir",
     "postinstall": "electron-builder install-app-deps"
   },
   "author": "Game Manager",
@@ -22,94 +23,5 @@
   "dependencies": {
     "archiver": "^5.3.1",
     "fs-extra": "^10.1.0"
-  },
-  "build": {
-    "appId": "com.gamemanager.app",
-    "productName": "Game Manager",
-    "directories": {
-      "output": "dist",
-      "buildResources": "assets"
-    },
-    "files": [
-      "src/**/*",
-      "assets/**/*",
-      "package.json"
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64", "ia32"]
-        },
-        "zip"
-      ],
-      "icon": "assets/icon.ico",
-      "requestedExecutionLevel": "asInvoker"
-    },
-    "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": ["x64", "arm64"]
-        },
-        {
-          "target": "zip",
-          "arch": ["x64", "arm64"]
-        }
-      ],
-      "icon": "assets/icon.icns",
-      "category": "public.app-category.games",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb",
-        "tar.gz"
-      ],
-      "icon": "assets/icon.png",
-      "category": "Game",
-      "maintainer": "Game Manager",
-      "vendor": "Game Manager",
-      "synopsis": "游戏管理软件",
-      "description": "管理Galgame、RPG和Unity游戏的工具"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "perMachine": false,
-      "allowElevation": true,
-      "installerIcon": "assets/icon.ico",
-      "uninstallerIcon": "assets/icon.ico",
-      "installerHeaderIcon": "assets/icon.ico",
-      "installerSidebar": "assets/installerSidebar.bmp",
-      "uninstallerSidebar": "assets/installerSidebar.bmp",
-      "license": "LICENSE.txt",
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Game Manager",
-      "include": "build/installer.nsh",
-      "deleteAppDataOnUninstall": false
-    },
-    "dmg": {
-      "sign": false,
-      "contents": [
-        {
-          "x": 110,
-          "y": 150
-        },
-        {
-          "x": 240,
-          "y": 150,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ],
-      "window": {
-        "width": 400,
-        "height": 300
-      }
-    }
   }
 }
